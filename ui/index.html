@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Real-time OWASP Top 10 for LLM Applications -- Test Scenarios</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --border: #2a2e39; --text: #e6e8ee;
+    --muted: #8b93a5; --accent: #5b8cff; --held: #2fbf71; --review: #e0a52c;
+    --na: #5a6072; --err: #e0524c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, Segoe UI, Roboto, sans-serif; }
+  header { padding: 24px 32px 12px; border-bottom: 1px solid var(--border); }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .intro { max-width: 900px; color: var(--muted); font-size: 13px; line-height: 1.6; margin-top: 10px; }
+  .intro b { color: var(--text); }
+  main { padding: 20px 32px 60px; max-width: 1700px; margin: 0 auto; }
+  .controls { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+  input[type=text] { flex: 1; min-width: 280px; background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 12px; border-radius: 6px; font-size: 14px; }
+  button { background: var(--accent); color: white; border: none; padding: 10px 16px; border-radius: 6px;
+    font-size: 14px; cursor: pointer; }
+  button:disabled { background: var(--na); cursor: not-allowed; }
+  button.secondary { background: var(--panel); border: 1px solid var(--border); color: var(--text); }
+  button.small { padding: 5px 10px; font-size: 12px; margin-top: 8px; }
+  .status { font-size: 13px; color: var(--muted); margin: 10px 0 20px; min-height: 18px; }
+  .status.llm-yes { color: var(--held); }
+  .status.llm-no { color: var(--err); }
+  .profile-box { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px;
+    margin-bottom: 24px; font-size: 13px; display: none; }
+  .profile-box.show { display: block; }
+  .profile-box dl { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; margin: 0; }
+  .profile-box dt { color: var(--muted); }
+  .profile-box dd { margin: 0; word-break: break-word; }
+  .tc-section { margin-top: 32px; }
+  .tc-header { display: flex; align-items: center; gap: 12px; margin: 8px 0 14px; flex-wrap: wrap; }
+  .tc-header h2 { font-size: 16px; margin: 0; }
+  .badge { background: var(--accent); color: white; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; table-layout: fixed; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 13px; overflow-wrap: break-word; }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: none; }
+  .risk-name { font-weight: 600; }
+  .risk-cite { color: var(--muted); font-size: 11px; margin-top: 4px; }
+  .prompt-text { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #c3c9d9;
+    background: #10121a; padding: 8px; border-radius: 4px; margin-top: 6px; white-space: pre-wrap; word-break: break-word; max-height: 140px; overflow-y: auto; }
+  textarea.prompt-edit { width: 100%; min-height: 90px; margin-top: 6px; font-family: ui-monospace, Consolas, monospace;
+    font-size: 12px; background: #10121a; color: #c3c9d9; border: 1px solid var(--border); border-radius: 4px; padding: 8px; resize: vertical; }
+  textarea.prompt-edit:disabled { opacity: .6; }
+  .note { color: var(--muted); font-size: 11px; margin-top: 6px; }
+  .col-left { width: 33%; }
+  .col-mid { width: 27%; }
+  .col-right { width: 40%; }
+  .verdict { display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-bottom: 6px; }
+  .verdict.held { background: rgba(47,191,113,.15); color: var(--held); }
+  .verdict.review { background: rgba(224,165,44,.15); color: var(--review); }
+  .verdict.na { background: rgba(90,96,114,.2); color: var(--na); }
+  .verdict.err { background: rgba(224,82,76,.15); color: var(--err); }
+  .verdict.dup { background: rgba(224,165,44,.25); color: var(--review); }
+  .response-text { font-size: 12px; color: var(--text); white-space: pre-wrap; word-break: break-word; max-height: 160px; overflow-y: auto; }
+  .followup { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+  .followup-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+  .empty-state { color: var(--muted); font-size: 13px; padding: 40px; text-align: center; border: 1px dashed var(--border); border-radius: 8px; }
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--muted); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ref-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; margin-top: 10px; }
+  .ref-label:first-child { margin-top: 0; }
+  .ref-quote { font-size: 12px; font-style: italic; color: var(--text); margin-top: 4px; }
+  .ref-remediation { font-size: 12px; color: var(--text); margin: 4px 0 0; padding-left: 16px; }
+  .ref-remediation li { margin-bottom: 6px; }
+  .row-status { font-size: 11px; color: var(--muted); margin-left: 8px; }
+  .assessment { font-size: 12px; line-height: 1.5; padding: 8px 10px; border-radius: 4px; border-left: 3px solid var(--na); }
+  .assessment.untested { color: var(--muted); border-left-color: var(--na); background: rgba(90,96,114,.08); }
+  .assessment.na { color: var(--muted); border-left-color: var(--na); background: rgba(90,96,114,.08); }
+  .assessment.held { color: var(--held); border-left-color: var(--held); background: rgba(47,191,113,.08); }
+  .assessment.review { color: var(--review); border-left-color: var(--review); background: rgba(224,165,44,.08); }
+  .assessment.err { color: var(--err); border-left-color: var(--err); background: rgba(224,82,76,.08); }
+  .assessment.dup { color: var(--review); border-left-color: var(--review); background: rgba(224,165,44,.12); }
+  .assessment b { color: inherit; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Real-time OWASP Top 10 for LLM Applications -- Test Scenarios</h1>
+  <div class="sub">IEM-AIS &middot; shared UI for every test case</div>
+  <div class="intro">
+    Introduction &mdash; this tool learns a target URL for real (fetches its actual served HTML/JS,
+    no assumptions) and decides whether it exposes an LLM interface at all. If it does, it builds
+    attack prompts for each test case below from OWASP GenAI LLM Top 10 2026's own text, fetched
+    live from OWASP's site every time, contextualized to that specific site's actual stated purpose
+    &mdash; not a fixed script. Every prompt box is editable and testable on its own; what a risk
+    actually means and how to remediate it is fetched live, not stored here. Every prompt is sent
+    to the real, live endpoint; nothing is simulated. Point this at a public domain or at
+    <code>localhost</code>.
+  </div>
+</header>
+
+<main>
+  <div class="controls">
+    <input id="url" type="text" placeholder="https://example.com/  or  localhost:3000">
+    <button id="analyzeBtn" onclick="analyze()">Analyze Site</button>
+  </div>
+  <div id="status" class="status"></div>
+
+  <div id="profileBox" class="profile-box">
+    <dl id="profileList"></dl>
+  </div>
+
+  <div id="configBox" class="profile-box" style="display:none; border-color: var(--review);">
+    <div style="color: var(--review); font-weight:600; margin-bottom:8px;">Config needed for this site</div>
+    <div id="configExplain" class="note" style="margin-bottom:10px;"></div>
+    <div id="configForm"></div>
+    <div class="note" style="margin-top:10px;">Fields entered above are used for this run only (both test
+      cases). To make them permanent for this exact URL, add the snippet below to
+      <code id="configPathLabel"></code> instead:</div>
+    <div class="prompt-text" id="configSnippet" style="max-height:200px;"></div>
+  </div>
+
+  <div id="testCaseSections"></div>
+</main>
+
+<script>
+let lastAnalysis = null;
+let promptMeta = {};  // "tcKey:riskId" -> prompt dict
+
+function esc2(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function setStatus(html, cls) {
+  const el = document.getElementById('status');
+  el.innerHTML = html;
+  el.className = 'status' + (cls ? ' ' + cls : '');
+}
+
+async function analyze() {
+  const url = document.getElementById('url').value.trim();
+  if (!url) return;
+  document.getElementById('analyzeBtn').disabled = true;
+  setStatus('Analyzing site (fetching real HTML/JS, no assumptions)...');
+  document.getElementById('profileBox').classList.remove('show');
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url})
+    });
+    const profile = await res.json();
+    lastAnalysis = profile;
+    renderProfile(profile);
+
+    const firstWithNeeds = Object.values(profile.test_cases || {}).map(tc => tc.config_needs).find(n => n);
+    renderConfigNeeds(firstWithNeeds);
+
+    if (profile.error) {
+      setStatus('Could not analyze: ' + esc2(profile.error), 'llm-no');
+      document.getElementById('testCaseSections').innerHTML = '<div class="empty-state">Analysis failed -- see status above.</div>';
+    } else if (profile.is_llm_site) {
+      setStatus('LLM interface detected. Objective: ' + esc2(profile.objective), 'llm-yes');
+      renderTestCaseSections(profile.test_cases || {});
+    } else {
+      setStatus('This site does not have LLM.', 'llm-no');
+      document.getElementById('testCaseSections').innerHTML = '<div class="empty-state">This site does not have LLM -- nothing to test.</div>';
+    }
+  } catch (e) {
+    setStatus('Request failed: ' + esc2(String(e)), 'llm-no');
+  } finally {
+    document.getElementById('analyzeBtn').disabled = false;
+  }
+}
+
+function renderProfile(p) {
+  const box = document.getElementById('profileBox');
+  const dl = document.getElementById('profileList');
+  const rows = [
+    ['URL', esc2(p.url)],
+    ['Is LLM site', p.is_llm_site ? 'YES' : 'NO'],
+    ['Objective (discovered)', esc2(p.objective)],
+    ['Signals', (p.signals || []).map(esc2).join('<br>')],
+    ['Endpoint(s) found', (p.endpoints || []).map(e => esc2(e.method + ' ' + e.path)).join('<br>') || '(none)'],
+  ];
+  dl.innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  box.classList.add('show');
+}
+
+function renderConfigNeeds(needs) {
+  const box = document.getElementById('configBox');
+  if (!needs || !needs.missing_fields || needs.missing_fields.length === 0) {
+    box.style.display = 'none';
+    return;
+  }
+  document.getElementById('configExplain').textContent =
+    `Endpoint ${needs.endpoint_used} also needs field(s) this tool cannot determine on its own -- ` +
+    `every site is unique, so these values must come from you, not a guess:`;
+  document.getElementById('configForm').innerHTML = needs.missing_fields.map(f =>
+    `<div style="margin-bottom:6px;"><label style="display:inline-block; width:140px; color:var(--muted); font-size:12px;">${esc2(f)}</label>` +
+    `<input type="text" id="extrafield-${esc2(f)}" placeholder="value for ${esc2(f)}" style="width:300px; padding:6px 8px;"></div>`
+  ).join('');
+  document.getElementById('configPathLabel').textContent = needs.config_path || 'config/site_overrides.json';
+  document.getElementById('configSnippet').textContent = needs.config_snippet || '';
+  box.style.display = 'block';
+}
+
+function collectExtraFields() {
+  const needs = lastAnalysis && Object.values(lastAnalysis.test_cases || {}).map(tc => tc.config_needs).find(n => n);
+  if (!needs || !needs.missing_fields) return null;
+  const out = {};
+  let any = false;
+  for (const f of needs.missing_fields) {
+    const el = document.getElementById('extrafield-' + f);
+    if (el && el.value.trim()) { out[f] = el.value.trim(); any = true; }
+  }
+  return any ? out : null;
+}
+
+function verdictClass(v) {
+  if (!v) return 'na';
+  if (v.startsWith('DUPLICATE_RESPONSE')) return 'dup';
+  if (v.startsWith('HELD')) return 'held';
+  if (v.startsWith('NOT_APPLICABLE')) return 'na';
+  if (v.startsWith('ERROR') || v === 'NO_RESPONSE') return 'err';
+  return 'review';
+}
+
+function assessmentHtml(entry) {
+  if (!entry) {
+    return `<div class="assessment untested">Not tested yet &mdash; whether remediation is actually needed here is unknown until this row is tested.</div>`;
+  }
+  if (entry.sent === false) {
+    return `<div class="assessment na">Not sent &mdash; no real channel exists for this risk against this target, so this run says nothing about it either way. Remediation below is still worth applying if this application later gains that capability.</div>`;
+  }
+  const v = entry.verdict || '';
+  if (v.startsWith('DUPLICATE_RESPONSE')) {
+    return `<div class="assessment dup"><b>This run: DUPLICATE_RESPONSE.</b> This exact reply text also came back for at least one other prompt in the same run &mdash; almost certainly a canned or rate-limited message, not a real answer to this specific prompt. Re-test later (once any rate limit resets) before drawing any conclusion; this result doesn't tell you whether the attack would succeed or fail.</div>`;
+  }
+  if (v.startsWith('HELD')) {
+    return `<div class="assessment held"><b>This run: HELD.</b> A refusal marker matched the response &mdash; this specific attempt did not visibly succeed. Remediation below is defense-in-depth to keep it that way, not evidence of an active gap (heuristic verdict &mdash; verify manually before relying on this).</div>`;
+  }
+  if (v.startsWith('ERROR') || v === 'NO_RESPONSE') {
+    return `<div class="assessment err"><b>This run: ${esc2(v)}.</b> Inconclusive &mdash; whether remediation is needed is unknown until a real result is obtained. Re-test.</div>`;
+  }
+  return `<div class="assessment review"><b>This run: NEEDS_REVIEW.</b> No refusal marker matched &mdash; read the actual response in the middle column before concluding anything. If it shows real compliance (the model actually disclosed/acted on the injected instruction), the remediation below applies directly; if it's an unrelated or canned reply, it doesn't.</div>`;
+}
+
+function referenceCellHtml(tcKey, p, entry) {
+  const remediation = (p.remediation || []).map(r => `<li>${esc2(r)}</li>`).join('');
+  return `
+    <div class="ref-label">What it means (live from OWASP)</div>
+    <div class="ref-quote">${esc2(p.meaning || '(not available)')}</div>
+    <div class="ref-label">Assessment (this run)</div>
+    <div id="ref-assessment-${tcKey}-${p.risk_id}">${assessmentHtml(entry)}</div>
+    <div class="ref-label">Remediation</div>
+    <ul class="ref-remediation">${remediation || '<li>(not available)</li>'}</ul>
+  `;
+}
+
+function renderTestCaseSections(testCases) {
+  const container = document.getElementById('testCaseSections');
+  const keys = Object.keys(testCases);
+  if (keys.length === 0) {
+    container.innerHTML = '<div class="empty-state">No test cases available.</div>';
+    return;
+  }
+  container.innerHTML = keys.map(tcKey => {
+    const tc = testCases[tcKey];
+    return `<section class="tc-section" id="tc-section-${tcKey}">
+      <div class="tc-header">
+        <h2>${esc2(tc.label)}</h2>
+        <span class="badge">${(tc.prompts || []).length} risk categories &middot; reference live from OWASP</span>
+        <button class="secondary" onclick="runTest('${tcKey}')" id="testBtn-${tcKey}">Run All ${(tc.prompts || []).length} (batch)</button>
+      </div>
+      <div id="table-${tcKey}"></div>
+    </section>`;
+  }).join('');
+
+  keys.forEach(tcKey => renderPromptTable(tcKey, testCases[tcKey].prompts || []));
+}
+
+function renderPromptTable(tcKey, prompts) {
+  prompts.forEach(p => { promptMeta[tcKey + ':' + p.risk_id] = p; });
+
+  const rows = prompts.map(p => {
+    const rowKey = tcKey + '-' + p.risk_id;
+    const leftEditable = p.prompt !== null
+      ? `<textarea class="prompt-edit" id="prompt-${rowKey}">${esc2(p.prompt)}</textarea>` +
+        (p.followup_prompt
+          ? `<div class="followup"><span class="followup-label">Follow-up prompt</span>
+              <textarea class="prompt-edit" id="followup-${rowKey}">${esc2(p.followup_prompt)}</textarea></div>`
+          : '') +
+        `<button class="small" onclick="testOne('${tcKey}', ${p.risk_id})" id="testbtn-${rowKey}">Test this prompt</button>` +
+        `<span class="row-status" id="rowstatus-${rowKey}"></span>`
+      : `<div class="note">No prompt sent -- no real channel exists for this risk against this target (see note above).</div>`;
+
+    return `<tr>
+      <td class="col-left">
+        <div class="risk-name">${p.risk_id}. ${esc2(p.risk_name)}</div>
+        <div class="risk-cite">${esc2(p.citation)}</div>
+        <div class="note">${esc2(p.applicability_note)}</div>
+        ${leftEditable}
+      </td>
+      <td class="col-mid">
+        <div id="result-${rowKey}">Not tested yet.</div>
+      </td>
+      <td class="col-right">
+        ${referenceCellHtml(tcKey, p, null)}
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('table-' + tcKey).innerHTML = `<table>
+    <thead><tr>
+      <th class="col-left">Risk Category &amp; Attack Prompt</th>
+      <th class="col-mid">Test Result</th>
+      <th class="col-right">What It Means &amp; Remediation (OWASP)</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function resultCellHtml(r) {
+  const vclass = verdictClass(r.verdict);
+  const main = r.sent
+    ? `<span class="verdict ${vclass}">${esc2(r.verdict)}</span>
+       <div class="response-text">${esc2(r.response_text || r.error || '(empty response)')}</div>`
+    : `<span class="verdict na">NOT APPLICABLE</span>`;
+  const followup = r.followup_prompt
+    ? `<div class="followup"><span class="followup-label">Follow-up result</span><br>
+         <span class="verdict ${verdictClass(r.followup_verdict)}">${esc2(r.followup_verdict)}</span>
+         <div class="response-text">${esc2(r.followup_response_text || r.followup_error || '(empty response)')}</div>
+       </div>`
+    : '';
+  return main + followup;
+}
+
+async function testOne(tcKey, riskId) {
+  const url = document.getElementById('url').value.trim();
+  const meta = promptMeta[tcKey + ':' + riskId] || {};
+  const rowKey = tcKey + '-' + riskId;
+  const promptEl = document.getElementById('prompt-' + rowKey);
+  const followupEl = document.getElementById('followup-' + rowKey);
+  const btn = document.getElementById('testbtn-' + rowKey);
+  const statusEl = document.getElementById('rowstatus-' + rowKey);
+  if (!promptEl) return;
+
+  btn.disabled = true;
+  promptEl.disabled = true;
+  if (followupEl) followupEl.disabled = true;
+  statusEl.innerHTML = '<span class="spinner"></span> testing...';
+
+  try {
+    const body = {
+      url,
+      test_case: tcKey,
+      risk_id: riskId,
+      prompt: promptEl.value,
+      followup_prompt: followupEl ? followupEl.value : null,
+      followup_same_session: !!meta.followup_same_session,
+      extra_fields: collectExtraFields(),
+    };
+    const res = await fetch('/api/test_one', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+    });
+    const entry = await res.json();
+    if (entry.error && entry.sent === undefined) {
+      document.getElementById('result-' + rowKey).innerHTML = `<span class="verdict err">ERROR</span><div class="response-text">${esc2(entry.error)}</div>`;
+      document.getElementById('ref-assessment-' + rowKey).innerHTML = assessmentHtml({sent: true, verdict: 'ERROR'});
+      statusEl.textContent = '';
+    } else {
+      document.getElementById('result-' + rowKey).innerHTML = resultCellHtml(entry);
+      document.getElementById('ref-assessment-' + rowKey).innerHTML = assessmentHtml(entry);
+      statusEl.textContent = entry._evidence_file ? 'saved' : '';
+    }
+  } catch (e) {
+    statusEl.textContent = '';
+    document.getElementById('result-' + rowKey).innerHTML = `<span class="verdict err">ERROR</span><div class="response-text">${esc2(String(e))}</div>`;
+    document.getElementById('ref-assessment-' + rowKey).innerHTML = assessmentHtml({sent: true, verdict: 'ERROR'});
+  } finally {
+    btn.disabled = false;
+    promptEl.disabled = false;
+    if (followupEl) followupEl.disabled = false;
+  }
+}
+
+async function runTest(tcKey) {
+  const url = document.getElementById('url').value.trim();
+  const btn = document.getElementById('testBtn-' + tcKey);
+  btn.disabled = true;
+  document.getElementById('analyzeBtn').disabled = true;
+  setStatus('<span class="spinner"></span> Running the batch for ' + esc2(tcKey) + ' against the live endpoint (this sends real requests, can take up to a minute)... note: this resets any edits you made to individual prompt boxes in this test case back to the standard prompt.', '');
+
+  try {
+    const extra_fields = collectExtraFields();
+    const res = await fetch('/api/test', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url, test_case: tcKey, extra_fields})
+    });
+    const evidence = await res.json();
+    applyBatchResults(tcKey, evidence);
+    let statusMsg = 'Done. Verdict: ' + esc2(evidence.verdict || 'unknown');
+    if (evidence.endpoint_used) statusMsg += ' -- endpoint used: ' + esc2(evidence.endpoint_used);
+    if (evidence.endpoint_warning) statusMsg += ' | ' + esc2(evidence.endpoint_warning);
+    if (evidence._evidence_file) statusMsg += ' -- evidence saved to ' + esc2(evidence._evidence_file);
+    setStatus(statusMsg, evidence.verdict === 'COMPLETE' ? 'llm-yes' : 'llm-no');
+  } catch (e) {
+    setStatus('Request failed: ' + esc2(String(e)), 'llm-no');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('analyzeBtn').disabled = false;
+  }
+}
+
+function applyBatchResults(tcKey, evidence) {
+  if (!evidence.results || evidence.results.length === 0) {
+    document.getElementById('table-' + tcKey).innerHTML = `<div class="empty-state">${esc2(evidence.verdict || 'No results.')}</div>`;
+    return;
+  }
+  evidence.results.forEach(r => {
+    const rowKey = tcKey + '-' + r.risk_id;
+    const promptEl = document.getElementById('prompt-' + rowKey);
+    const followupEl = document.getElementById('followup-' + rowKey);
+    if (promptEl && r.prompt !== null && r.prompt !== undefined) promptEl.value = r.prompt;
+    if (followupEl && r.followup_prompt) followupEl.value = r.followup_prompt;
+    const resultEl = document.getElementById('result-' + rowKey);
+    if (resultEl) resultEl.innerHTML = resultCellHtml(r);
+    const assessEl = document.getElementById('ref-assessment-' + rowKey);
+    if (assessEl) assessEl.innerHTML = assessmentHtml(r);
+  });
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+
+# Personal/career documents -- not part of the IEM-AIS tool itself
+Misc/
+Project DOCS/*
+!Project DOCS/IEM-AIS-bludeprint.md
+!Project DOCS/IEM-AIS-Practical-Build-Roadmap.md
+
+# Real test evidence against live sites -- keep local, not published
+Jailbreaking/evidence/
+SensitiveInformation/evidence/
