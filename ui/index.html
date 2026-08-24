@@ -2,148 +2,477 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Real-time OWASP Top 10 for LLM Applications -- Test Scenarios</title>
-<style>
-  :root {
-    --bg: #0f1115; --panel: #171a21; --border: #2a2e39; --text: #e6e8ee;
-    --muted: #8b93a5; --accent: #5b8cff; --held: #2fbf71; --review: #e0a52c;
-    --na: #5a6072; --err: #e0524c;
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IEM-AIS -- Security Audit Utility</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Hanken+Grotesk:wght@600;700&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+          "on-tertiary-fixed-variant": "#574425",
+          "primary-fixed": "#dae2fd",
+          "on-surface-variant": "#45464d",
+          "on-secondary": "#ffffff",
+          "outline-variant": "#c6c6cd",
+          "primary-container": "#131b2e",
+          "on-tertiary": "#ffffff",
+          "on-primary-container": "#7c839b",
+          "surface-tint": "#565e74",
+          "on-primary": "#ffffff",
+          "on-tertiary-fixed": "#271901",
+          "surface-dim": "#d8dadc",
+          "secondary-fixed-dim": "#c0c1ff",
+          "primary-fixed-dim": "#bec6e0",
+          "verdict-review": "#D97706",
+          "inverse-surface": "#2d3133",
+          "background": "#f7f9fb",
+          "verdict-refused": "#059669",
+          "tertiary": "#000000",
+          "surface-container-lowest": "#ffffff",
+          "surface-container": "#eceef0",
+          "tertiary-fixed-dim": "#dec29a",
+          "surface-bright": "#f7f9fb",
+          "error-container": "#ffdad6",
+          "surface-container-highest": "#e0e3e5",
+          "tertiary-container": "#271901",
+          "border-subtle": "#E2E8F0",
+          "inverse-primary": "#bec6e0",
+          "on-background": "#191c1e",
+          "surface": "#f7f9fb",
+          "outline": "#76777d",
+          "on-error-container": "#93000a",
+          "text-muted": "#64748B",
+          "on-tertiary-container": "#98805d",
+          "on-secondary-fixed-variant": "#2f2ebe",
+          "surface-container-low": "#f2f4f6",
+          "secondary-fixed": "#e1e0ff",
+          "on-error": "#ffffff",
+          "on-primary-fixed-variant": "#3f465c",
+          "on-secondary-fixed": "#07006c",
+          "secondary-container": "#6063ee",
+          "on-surface": "#191c1e",
+          "primary": "#000000",
+          "on-secondary-container": "#fffbff",
+          "tertiary-fixed": "#fcdeb5",
+          "inverse-on-surface": "#eff1f3",
+          "verdict-active": "#4F46E5",
+          "error": "#ba1a1a",
+          "surface-container-high": "#e6e8ea",
+          "surface-variant": "#e0e3e5",
+          "on-primary-fixed": "#131b2e",
+          "secondary": "#4648d4"
+        },
+        "borderRadius": { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" },
+        "spacing": { "base": "8px", "container-max": "1280px", "gutter": "24px", "margin-mobile": "16px", "section-gap": "48px" },
+        "fontFamily": {
+          "label-caps": ["JetBrains Mono"], "body-lg": ["Inter"], "headline-md": ["Hanken Grotesk"],
+          "code-snippet": ["JetBrains Mono"], "display-lg": ["Hanken Grotesk"], "body-sm": ["Inter"],
+          "headline-sm": ["Hanken Grotesk"]
+        },
+        "fontSize": {
+          "label-caps": ["12px", {"lineHeight":"16px","letterSpacing":"0.05em","fontWeight":"500"}],
+          "body-lg": ["16px", {"lineHeight":"24px","fontWeight":"400"}],
+          "headline-md": ["24px", {"lineHeight":"32px","fontWeight":"600"}],
+          "code-snippet": ["13px", {"lineHeight":"20px","fontWeight":"400"}],
+          "display-lg": ["48px", {"lineHeight":"56px","letterSpacing":"-0.02em","fontWeight":"700"}],
+          "body-sm": ["14px", {"lineHeight":"20px","fontWeight":"400"}],
+          "headline-sm": ["18px", {"lineHeight":"24px","fontWeight":"600"}]
+        }
+      }
+    }
   }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, Segoe UI, Roboto, sans-serif; }
-  header { padding: 24px 32px 12px; border-bottom: 1px solid var(--border); }
-  h1 { font-size: 22px; margin: 0 0 6px; }
-  .sub { color: var(--muted); font-size: 13px; }
-  .intro { max-width: 900px; color: var(--muted); font-size: 13px; line-height: 1.6; margin-top: 10px; }
-  .intro b { color: var(--text); }
-  main { padding: 20px 32px 60px; max-width: 1700px; margin: 0 auto; }
-  .controls { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
-  input[type=text] { flex: 1; min-width: 280px; background: var(--panel); border: 1px solid var(--border); color: var(--text);
-    padding: 10px 12px; border-radius: 6px; font-size: 14px; }
-  button { background: var(--accent); color: white; border: none; padding: 10px 16px; border-radius: 6px;
-    font-size: 14px; cursor: pointer; }
-  button:disabled { background: var(--na); cursor: not-allowed; }
-  button.secondary { background: var(--panel); border: 1px solid var(--border); color: var(--text); }
-  button.small { padding: 5px 10px; font-size: 12px; margin-top: 8px; }
-  .status { font-size: 13px; color: var(--muted); margin: 10px 0 20px; min-height: 18px; }
-  .status.llm-yes { color: var(--held); }
-  .status.llm-no { color: var(--err); }
-  .profile-box { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px;
-    margin-bottom: 24px; font-size: 13px; display: none; }
-  .profile-box.show { display: block; }
-  .profile-box dl { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; margin: 0; }
-  .profile-box dt { color: var(--muted); }
-  .profile-box dd { margin: 0; word-break: break-word; }
-  .tc-section { margin-top: 32px; }
-  .tc-header { display: flex; align-items: center; gap: 12px; margin: 8px 0 14px; flex-wrap: wrap; }
-  .tc-header h2 { font-size: 16px; margin: 0; }
-  .badge { background: var(--accent); color: white; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
-  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; table-layout: fixed; }
-  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 13px; overflow-wrap: break-word; }
-  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
-  tr:last-child td { border-bottom: none; }
-  .risk-name { font-weight: 600; }
-  .risk-cite { color: var(--muted); font-size: 11px; margin-top: 4px; }
-  .prompt-text { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #c3c9d9;
-    background: #10121a; padding: 8px; border-radius: 4px; margin-top: 6px; white-space: pre-wrap; word-break: break-word; max-height: 140px; overflow-y: auto; }
-  textarea.prompt-edit { width: 100%; min-height: 90px; margin-top: 6px; font-family: ui-monospace, Consolas, monospace;
-    font-size: 12px; background: #10121a; color: #c3c9d9; border: 1px solid var(--border); border-radius: 4px; padding: 8px; resize: vertical; }
-  textarea.prompt-edit:disabled { opacity: .6; }
-  .note { color: var(--muted); font-size: 11px; margin-top: 6px; }
-  .col-left { width: 33%; }
-  .col-mid { width: 27%; }
-  .col-right { width: 40%; }
-  .verdict { display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-bottom: 6px; }
-  .verdict.held { background: rgba(47,191,113,.15); color: var(--held); }
-  .verdict.review { background: rgba(224,165,44,.15); color: var(--review); }
-  .verdict.na { background: rgba(90,96,114,.2); color: var(--na); }
-  .verdict.err { background: rgba(224,82,76,.15); color: var(--err); }
-  .verdict.dup { background: rgba(224,165,44,.25); color: var(--review); }
-  .response-text { font-size: 12px; color: var(--text); white-space: pre-wrap; word-break: break-word; max-height: 160px; overflow-y: auto; }
-  .followup { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
-  .followup-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
-  .empty-state { color: var(--muted); font-size: 13px; padding: 40px; text-align: center; border: 1px dashed var(--border); border-radius: 8px; }
-  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--muted); border-top-color: var(--accent);
+</script>
+<style>
+  body { background-color: #f7f9fb; }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+  .hidden-view { display: none !important; }
+  .nav-active { color: #000; font-weight: 700; border-right: 2px solid #000; background: #e6e8ea; }
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #c6c6cd; border-top-color: #4F46E5;
     border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; margin-right: 6px; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .ref-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; margin-top: 10px; }
-  .ref-label:first-child { margin-top: 0; }
-  .ref-quote { font-size: 12px; font-style: italic; color: var(--text); margin-top: 4px; }
-  .ref-remediation { font-size: 12px; color: var(--text); margin: 4px 0 0; padding-left: 16px; }
-  .ref-remediation li { margin-bottom: 6px; }
-  .row-status { font-size: 11px; color: var(--muted); margin-left: 8px; }
-  .assessment { font-size: 12px; line-height: 1.5; padding: 8px 10px; border-radius: 4px; border-left: 3px solid var(--na); }
-  .assessment.untested { color: var(--muted); border-left-color: var(--na); background: rgba(90,96,114,.08); }
-  .assessment.na { color: var(--muted); border-left-color: var(--na); background: rgba(90,96,114,.08); }
-  .assessment.held { color: var(--held); border-left-color: var(--held); background: rgba(47,191,113,.08); }
-  .assessment.review { color: var(--review); border-left-color: var(--review); background: rgba(224,165,44,.08); }
-  .assessment.err { color: var(--err); border-left-color: var(--err); background: rgba(224,82,76,.08); }
-  .assessment.dup { color: var(--review); border-left-color: var(--review); background: rgba(224,165,44,.12); }
-  .assessment b { color: inherit; }
+  textarea.prompt-edit { width: 100%; min-height: 90px; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    background: #f2f4f6; color: #191c1e; border: 1px solid #E2E8F0; border-radius: 4px; padding: 8px; resize: vertical; }
+  textarea.prompt-edit:disabled { opacity: .6; }
+  .response-text { font-size: 12px; color: #191c1e; white-space: pre-wrap; word-break: break-word; max-height: 160px; overflow-y: auto; }
+  #telemetry-panel { font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6; }
+  #telemetry-panel .line-info { color: #a5b4d8; }
+  #telemetry-panel .line-ok { color: #6ee7b7; }
+  #telemetry-panel .line-warn { color: #fcd34d; }
+
+  /* Export to PDF: browser print, not a JS library -- stays dependency-free.
+     Prints ONLY the Reports view, at original colors, compacted to fit one
+     page for a typical run. A very large run (many test cases/risks) will
+     paginate rather than truncate -- nothing is ever cut off, it just spans
+     more than one printed page. */
+  @media print {
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+    header, aside, #view-dashboard, #view-live, #exportPdfBtn { display: none !important; }
+    body { background: #fff !important; }
+    main { margin: 0 !important; padding: 0 !important; max-width: 100% !important; }
+    @page { size: A4; margin: 10mm; }
+
+    #view-report .mb-section-gap { margin-bottom: 10px !important; }
+    #view-report .p-8 { padding: 10px !important; }
+    #view-report .p-6, #view-report .p-4 { padding: 8px !important; }
+    #view-report .gap-6, #view-report .gap-gutter { gap: 8px !important; }
+    #view-report .space-y-4 > * + *,
+    #view-report .space-y-6 > * + *,
+    #view-report .space-y-8 > * + * { margin-top: 6px !important; }
+    #view-report h1 { font-size: 18px !important; line-height: 1.2 !important; margin-bottom: 4px !important; }
+    #view-report h2 { font-size: 13px !important; line-height: 1.2 !important; margin-bottom: 4px !important; }
+    #view-report h3, #view-report h4 { font-size: 10px !important; margin-bottom: 2px !important; }
+    #view-report p, #view-report li { font-size: 8.5px !important; line-height: 1.3 !important; }
+    #view-report .rounded-lg, #view-report .rounded-xl { border-radius: 3px !important; }
+    #view-report .border-l-4 { border-left-width: 3px !important; }
+    #reportFindings > div, #reportUntested > div, #view-report header { break-inside: avoid; }
+  }
 </style>
 </head>
-<body>
+<body class="font-body-lg text-on-surface min-h-screen">
 
-<header>
-  <h1>Real-time OWASP Top 10 for LLM Applications -- Test Scenarios</h1>
-  <div class="sub">IEM-AIS &middot; shared UI for every test case</div>
-  <div class="intro">
-    Introduction &mdash; this tool learns a target URL for real (fetches its actual served HTML/JS,
-    no assumptions) and decides whether it exposes an LLM interface at all. If it does, it builds
-    attack prompts for each test case below from OWASP GenAI LLM Top 10 2026's own text, fetched
-    live from OWASP's site every time, contextualized to that specific site's actual stated purpose
-    &mdash; not a fixed script. Every prompt box is editable and testable on its own; what a risk
-    actually means and how to remediate it is fetched live, not stored here. Every prompt is sent
-    to the real, live endpoint; nothing is simulated. Point this at a public domain or at
-    <code>localhost</code>.
-  </div>
+<!-- Top bar: wordmark only -- no accounts/notifications on a local single-user tool -->
+<header class="bg-surface border-b border-border-subtle flex items-center w-full px-gutter h-16 relative z-50">
+  <span class="font-headline-md text-headline-md font-bold text-primary">IEM-AIS</span>
+  <span class="font-label-caps text-label-caps text-text-muted ml-4">Local Security Audit Utility</span>
 </header>
 
-<main>
-  <div class="controls">
-    <input id="url" type="text" placeholder="https://example.com/  or  localhost:3000">
-    <button id="analyzeBtn" onclick="analyze()">Analyze Site</button>
-  </div>
-  <div id="status" class="status"></div>
+<div class="flex w-full">
+  <!-- Sidebar: only real, wired views -->
+  <aside class="hidden md:flex bg-surface-container-low fixed left-0 top-16 bottom-0 flex-col w-64 z-40 border-r border-border-subtle py-8">
+    <div class="px-6 mb-6">
+      <button id="startNewAuditBtn" onclick="startNewAudit()"
+        class="w-full bg-primary text-on-primary font-label-caps text-label-caps py-3 px-4 rounded hover:bg-opacity-90 transition-opacity">
+        Start New Audit
+      </button>
+    </div>
+    <nav class="flex-1 flex flex-col">
+      <a id="nav-dashboard" onclick="showView('dashboard')" class="flex items-center gap-3 px-6 py-3 font-label-caps text-label-caps text-primary cursor-pointer hover:bg-surface-container-high transition-all">
+        <span class="material-symbols-outlined text-lg">security</span> Dashboard
+      </a>
+      <a id="nav-live" onclick="showView('live')" class="flex items-center gap-3 px-6 py-3 font-label-caps text-label-caps text-on-surface-variant cursor-pointer hover:bg-surface-container-high transition-all">
+        <span class="material-symbols-outlined text-lg">terminal</span> Live Testing
+      </a>
+      <a id="nav-report" onclick="showView('report')" class="flex items-center gap-3 px-6 py-3 font-label-caps text-label-caps text-on-surface-variant cursor-pointer hover:bg-surface-container-high transition-all">
+        <span class="material-symbols-outlined text-lg">list_alt</span> Reports
+      </a>
+    </nav>
+    <div class="px-6 pt-4 border-t border-border-subtle mt-4">
+      <p class="font-body-sm text-body-sm text-text-muted leading-relaxed">Every prompt is sent to the real, live endpoint. Nothing here is simulated.</p>
+    </div>
+  </aside>
 
-  <div id="profileBox" class="profile-box">
-    <dl id="profileList"></dl>
-  </div>
+  <main class="flex-1 md:ml-64 px-margin-mobile md:px-gutter py-8 md:py-12 max-w-container-max mx-auto w-full">
 
-  <div id="configBox" class="profile-box" style="display:none; border-color: var(--review);">
-    <div style="color: var(--review); font-weight:600; margin-bottom:8px;">Config needed for this site</div>
-    <div id="configExplain" class="note" style="margin-bottom:10px;"></div>
-    <div id="configForm"></div>
-    <div class="note" style="margin-top:10px;">Fields entered above are used for this run only (both test
-      cases). To make them permanent for this exact URL, add the snippet below to
-      <code id="configPathLabel"></code> instead:</div>
-    <div class="prompt-text" id="configSnippet" style="max-height:200px;"></div>
-  </div>
+    <!-- ============================= VIEW 1: DASHBOARD ============================= -->
+    <section id="view-dashboard">
+      <section class="mb-section-gap">
+        <div class="max-w-3xl mx-auto text-center space-y-6">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-container-highest border border-border-subtle text-primary">
+            <span class="material-symbols-outlined text-sm">check_circle</span>
+            <span class="font-label-caps text-label-caps">System Ready</span>
+          </div>
+          <h1 class="font-display-lg text-display-lg text-primary">Initiate Security Audit</h1>
+          <p class="font-body-sm text-body-sm text-text-muted max-w-xl mx-auto">
+            Learns a target URL for real -- fetches its actual served HTML/JS, no assumptions --
+            and decides whether it exposes an LLM interface. Attack prompts are built from OWASP
+            GenAI LLM Top 10 2026's own text, fetched live every time.
+          </p>
+          <div class="relative w-full max-w-2xl mx-auto mt-8 flex items-center bg-surface-container-lowest border-b-2 border-primary rounded-t-lg shadow-sm">
+            <span class="material-symbols-outlined absolute left-4 text-text-muted">terminal</span>
+            <input id="url" type="text" placeholder="https://example.com/  or  localhost:3000"
+              class="w-full bg-transparent border-none py-6 pl-12 pr-32 font-code-snippet text-code-snippet text-primary placeholder-text-muted focus:ring-0 focus:outline-none">
+            <button id="analyzeBtn" onclick="analyze()"
+              class="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-on-primary font-label-caps text-label-caps px-4 py-2 rounded flex items-center gap-2 hover:bg-surface-tint transition-colors">
+              <span class="material-symbols-outlined text-sm">play_arrow</span> Start
+            </button>
+          </div>
+          <div id="status" class="font-body-sm text-body-sm text-text-muted min-h-[20px]"></div>
+        </div>
+      </section>
 
-  <div id="testCaseSections"></div>
-</main>
+      <section id="profileBox" class="mb-section-gap bg-surface-container-low border border-border-subtle rounded-lg p-6 hidden-view">
+        <h3 class="font-label-caps text-label-caps text-text-muted mb-3">Site Profile (discovered, not guessed)</h3>
+        <dl id="profileList" class="grid grid-cols-1 md:grid-cols-[160px_1fr] gap-x-4 gap-y-2 font-body-sm text-body-sm"></dl>
+      </section>
+
+      <section id="configBox" class="mb-section-gap bg-surface-container-lowest border border-verdict-review rounded-lg p-6 hidden-view">
+        <div class="font-label-caps text-label-caps text-verdict-review mb-2 flex items-center gap-2">
+          <span class="material-symbols-outlined text-sm">warning</span> Config needed for this site
+        </div>
+        <div id="configExplain" class="font-body-sm text-body-sm text-on-surface-variant mb-3"></div>
+        <div id="configForm" class="space-y-2 mb-3"></div>
+        <div class="font-body-sm text-body-sm text-text-muted mb-2">
+          Fields entered above are used for this run only. To make them permanent for this exact URL,
+          add the snippet below to <code id="configPathLabel" class="font-code-snippet text-code-snippet"></code> instead:
+        </div>
+        <pre id="configSnippet" class="font-code-snippet text-code-snippet bg-inverse-surface text-inverse-on-surface p-3 rounded max-h-48 overflow-y-auto"></pre>
+      </section>
+
+      <section class="mb-section-gap">
+        <div class="flex justify-between items-end border-b border-border-subtle pb-4 mb-6">
+          <div>
+            <h2 class="font-headline-md text-headline-md text-primary">OWASP Test Scenarios</h2>
+            <p id="scenariosSubtitle" class="font-body-sm text-body-sm text-text-muted mt-1">Pending target initialization</p>
+          </div>
+        </div>
+        <div id="scenarioCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div class="font-body-sm text-body-sm text-text-muted border border-dashed border-border-subtle rounded-xl p-8 text-center col-span-full">
+            Enter a target URL above to discover which test scenarios apply to it.
+          </div>
+        </div>
+      </section>
+
+      <section class="bg-surface-container border border-border-subtle rounded-xl p-8 relative overflow-hidden">
+        <h2 class="font-headline-md text-headline-md text-primary mb-4">The Honest Verdict</h2>
+        <div id="honestVerdictSummary" class="max-w-2xl font-body-sm text-body-sm text-on-surface-variant space-y-2">
+          <p>No active audit session detected. Provide a target URL to generate empirical security telemetry.</p>
+        </div>
+      </section>
+    </section>
+
+    <!-- ============================= VIEW 2: LIVE TESTING ============================= -->
+    <section id="view-live" class="hidden-view">
+      <div id="liveEmptyState" class="font-body-sm text-body-sm text-text-muted border border-dashed border-border-subtle rounded-xl p-12 text-center">
+        Analyze a target from the Dashboard first, then open a scenario card to test it live.
+      </div>
+
+      <div id="liveContent" class="hidden-view">
+        <div id="liveTcTabs" class="flex gap-2 mb-6 flex-wrap"></div>
+
+        <header class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-border-subtle pb-6">
+          <div>
+            <h1 class="font-display-lg text-display-lg text-primary mb-2 flex items-center gap-3">
+              <span id="liveSpinnerIcon" class="material-symbols-outlined text-4xl text-verdict-active hidden-view">sync</span>
+              <span id="liveTcLabel">Audit</span>
+            </h1>
+            <p class="font-code-snippet text-code-snippet text-text-muted mt-2">
+              Target: <span id="liveTargetUrl" class="text-primary font-bold bg-surface-container-low px-2 py-1 rounded"></span>
+            </p>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="text-right">
+              <div class="font-label-caps text-label-caps text-text-muted mb-1">Elapsed Time</div>
+              <div class="font-code-snippet text-code-snippet text-primary" id="liveTimer">00:00:00</div>
+            </div>
+            <button disabled title="Not available -- this tool has no in-flight cancel capability today."
+              class="bg-surface-variant text-text-muted px-4 py-2 rounded font-label-caps text-label-caps border border-border-subtle opacity-60 cursor-not-allowed">ABORT</button>
+            <button class="secondary bg-primary text-on-primary font-label-caps text-label-caps px-4 py-2 rounded disabled:opacity-50" id="runAllBtn"
+              onclick="if(window.__activeTc) runTest(window.__activeTc)">Run All (batch)</button>
+          </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+          <div class="lg:col-span-7 flex flex-col gap-6">
+            <h2 class="font-headline-sm text-headline-sm text-primary mb-2 border-b border-border-subtle pb-2">Risk Categories</h2>
+            <div id="riskCards"></div>
+          </div>
+          <div class="lg:col-span-5 flex flex-col h-full">
+            <h2 class="font-headline-sm text-headline-sm text-primary mb-2 border-b border-border-subtle pb-2">Live Telemetry</h2>
+            <div class="bg-inverse-surface rounded-lg border border-outline p-4 flex-grow flex flex-col min-h-[400px] shadow-inner">
+              <div class="flex items-center gap-2 border-b border-outline-variant pb-2 mb-2 opacity-50">
+                <span class="w-3 h-3 rounded-full bg-error"></span>
+                <span class="w-3 h-3 rounded-full bg-verdict-review"></span>
+                <span class="w-3 h-3 rounded-full bg-verdict-refused"></span>
+              </div>
+              <div id="telemetry-panel" class="flex-1 overflow-y-auto text-inverse-on-surface"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================= VIEW 3: REPORTS ============================= -->
+    <section id="view-report" class="hidden-view">
+      <div id="reportEmptyState" class="font-body-sm text-body-sm text-text-muted border border-dashed border-border-subtle rounded-xl p-12 text-center">
+        No audit run yet. Run a test case from Live Testing to generate a report.
+      </div>
+
+      <div id="reportContent" class="hidden-view">
+        <div class="flex justify-between items-start mb-4">
+          <h1 class="font-display-lg text-display-lg text-primary">IEM-AIS Security Audit: Honest Verdict Report</h1>
+          <button id="exportPdfBtn" onclick="window.print()"
+            class="flex-shrink-0 bg-primary text-on-primary font-label-caps text-label-caps px-4 py-2 rounded flex items-center gap-2 hover:bg-opacity-90">
+            <span class="material-symbols-outlined text-sm">picture_as_pdf</span> Export to PDF
+          </button>
+        </div>
+        <header class="mb-section-gap border-b border-border-subtle pb-8">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-6 bg-surface-container-low p-6 rounded-lg border border-border-subtle">
+            <div>
+              <p class="font-label-caps text-label-caps text-text-muted mb-1">TARGET URL</p>
+              <p id="reportTargetUrl" class="font-code-snippet text-code-snippet text-on-surface bg-surface-container-highest inline-block px-2 py-1 rounded break-all"></p>
+            </div>
+            <div>
+              <p class="font-label-caps text-label-caps text-text-muted mb-1">DATE OF AUDIT</p>
+              <p id="reportDate" class="font-body-lg text-body-lg text-on-surface"></p>
+            </div>
+            <div>
+              <p class="font-label-caps text-label-caps text-text-muted mb-1">ENDPOINT TESTED</p>
+              <p id="reportEndpoint" class="font-code-snippet text-code-snippet text-on-surface"></p>
+            </div>
+            <div>
+              <p class="font-label-caps text-label-caps text-text-muted mb-1">PROBE COVERAGE</p>
+              <p id="reportCoverage" class="font-body-lg text-body-lg text-on-surface font-semibold"></p>
+            </div>
+          </div>
+        </header>
+
+        <section class="mb-section-gap bg-surface-container-lowest border border-border-subtle rounded-lg p-8">
+          <h2 class="font-headline-md text-headline-md text-primary mb-4 flex items-center gap-2">
+            <span class="material-symbols-outlined text-text-muted">gavel</span> The Overall Verdict
+          </h2>
+          <div class="bg-surface-container-low border-l-4 border-text-muted p-6 rounded-r-lg">
+            <p class="font-body-lg text-body-lg text-on-surface leading-relaxed">
+              No compromise observed in the specific prompts tested, under these specific conditions, on this date.<br>
+              <span class="font-semibold text-error mt-2 block">This is not a guarantee of future security.</span>
+              A refusal to a single scripted attempt is not evidence against a motivated attacker who iterates
+              (OWASP LLM01:2026 Control #11) -- a failed probe is not automatically proof of the absence of a
+              vulnerability. This verdict applies strictly to the tested prompts within the defined scope; see
+              Tested Scope vs Untested Scope below for exactly what this run did and did not cover.
+            </p>
+          </div>
+        </section>
+
+        <section class="mb-section-gap">
+          <h2 class="font-headline-md text-headline-md text-primary mb-6 flex items-center gap-2">
+            <span class="material-symbols-outlined text-text-muted">list_alt</span> Detailed Findings
+          </h2>
+          <div id="reportFindings" class="space-y-8"></div>
+        </section>
+
+        <section class="border-t-2 border-border-subtle pt-8 bg-surface-container-lowest p-8 rounded-lg">
+          <h2 class="font-headline-md text-headline-md text-text-muted mb-4 flex items-center gap-2">
+            <span class="material-symbols-outlined">visibility_off</span> Tested Scope vs Untested Scope
+          </h2>
+          <p class="font-body-sm text-body-sm text-text-muted mb-6">Transparency is critical. The following were explicitly not sent this run, and why.</p>
+          <div id="reportUntested" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+        </section>
+      </div>
+    </section>
+
+  </main>
+</div>
 
 <script>
+// ============================================================================
+// State -- unchanged data shapes from the previous single-page version, plus
+// the view/telemetry/report state this redesign adds around them.
+// ============================================================================
 let lastAnalysis = null;
-let promptMeta = {};  // "tcKey:riskId" -> prompt dict
+let promptMeta = {};          // "tcKey:riskId" -> prompt dict (unchanged)
+let testResultsByTc = {};     // tcKey -> {riskId: resultEntry} -- fed by BOTH testOne() and
+                               // runTest() batches, so Reports/Honest-Verdict reflect either path
+let metaByTc = {};            // tcKey -> {endpoint_used, timestamp} of the most recent result
+let telemetryByTc = {};       // tcKey -> [{time, cls, text}] (new, for Live Telemetry)
+window.__activeTc = null;     // which test case Live Testing is currently showing
+let liveTimerHandle = null;
+let liveTimerStart = null;
+
+const SCENARIO_DESC = {
+  jailbreaking: "Assessing LLM vulnerability to adversarial jailbreaks and prompt injection intended to bypass safety guardrails.",
+  sensitive_info: "Testing for unintentional disclosure of PII, credentials, or confidential context via the model's own responses.",
+};
+function scenarioDesc(tcKey, label) {
+  return SCENARIO_DESC[tcKey] || `OWASP-grounded live security probe (${label}).`;
+}
 
 function esc2(s) {
   if (s === null || s === undefined) return '';
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// ============================================================================
+// View switching -- the one genuinely new piece of orchestration. Pure
+// presentation state; does not touch any fetch call or verdict logic.
+// ============================================================================
+function showView(name) {
+  ['dashboard', 'live', 'report'].forEach(v => {
+    document.getElementById('view-' + v).classList.toggle('hidden-view', v !== name);
+    document.getElementById('nav-' + v).classList.toggle('nav-active', v === name);
+  });
+  if (name === 'live') renderLiveEmptyOrContent();
+  if (name === 'report') renderReport();
+}
+
+function startNewAudit() {
+  lastAnalysis = null;
+  promptMeta = {};
+  testResultsByTc = {};
+  metaByTc = {};
+  telemetryByTc = {};
+  window.__activeTc = null;
+  document.getElementById('url').value = '';
+  document.getElementById('profileBox').classList.add('hidden-view');
+  document.getElementById('configBox').classList.add('hidden-view');
+  document.getElementById('scenarioCards').innerHTML = `<div class="font-body-sm text-body-sm text-text-muted border border-dashed border-border-subtle rounded-xl p-8 text-center col-span-full">Enter a target URL above to discover which test scenarios apply to it.</div>`;
+  document.getElementById('scenariosSubtitle').textContent = 'Pending target initialization';
+  updateHonestVerdictSummary();
+  setStatus('');
+  showView('dashboard');
+  document.getElementById('url').focus();
+}
+
+// ============================================================================
+// Result bookkeeping shared by testOne() and the batch path -- single source
+// of truth for both the Dashboard's Honest Verdict summary and the Reports
+// view, regardless of which of the two ways a risk was actually tested.
+// ============================================================================
+function recordResult(tcKey, riskId, entry) {
+  if (!testResultsByTc[tcKey]) testResultsByTc[tcKey] = {};
+  testResultsByTc[tcKey][riskId] = entry;
+  updateHonestVerdictSummary();
+}
+
+function updateHonestVerdictSummary() {
+  const el = document.getElementById('honestVerdictSummary');
+  const tcKeys = Object.keys(testResultsByTc).filter(k => Object.keys(testResultsByTc[k]).length > 0);
+  if (tcKeys.length === 0) {
+    el.innerHTML = '<p>No active audit session detected. Provide a target URL to generate empirical security telemetry.</p>';
+    return;
+  }
+  let sent = 0, held = 0, review = 0, err = 0;
+  tcKeys.forEach(k => {
+    Object.values(testResultsByTc[k]).forEach(r => {
+      if (!r.sent) return;
+      sent++;
+      const vc = verdictClass(r.verdict);
+      if (vc === 'held') held++; else if (vc === 'err') err++; else review++;
+    });
+  });
+  el.innerHTML = `
+    <p>${sent} risk${sent === 1 ? '' : 's'} tested this session against
+      <span class="font-code-snippet text-code-snippet">${esc2(document.getElementById('url').value.trim())}</span>:
+      <span class="text-verdict-refused font-semibold">${held} held</span>,
+      <span class="text-verdict-review font-semibold">${review} need review</span>,
+      <span class="text-error font-semibold">${err} error${err === 1 ? '' : 's'}</span>.</p>
+    <p class="mt-2"><b>This is not a guarantee of security.</b> A refusal to a scripted attempt is not
+      evidence against a motivated attacker who iterates -- see the full report for tested vs.
+      untested scope.</p>
+    <button onclick="showView('report')"
+      class="mt-3 bg-primary text-on-primary font-label-caps text-label-caps px-4 py-2 rounded hover:bg-opacity-90">
+      View Full Report
+    </button>
+  `;
+}
+
 function setStatus(html, cls) {
   const el = document.getElementById('status');
   el.innerHTML = html;
-  el.className = 'status' + (cls ? ' ' + cls : '');
+  el.className = 'font-body-sm text-body-sm min-h-[20px] ' + (cls === 'llm-yes' ? 'text-verdict-refused' : cls === 'llm-no' ? 'text-error' : 'text-text-muted');
 }
 
+// ============================================================================
+// Analyze -- unchanged: same endpoint, same payload, same response handling.
+// ============================================================================
 async function analyze() {
   const url = document.getElementById('url').value.trim();
   if (!url) return;
   document.getElementById('analyzeBtn').disabled = true;
   setStatus('Analyzing site (fetching real HTML/JS, no assumptions)...');
-  document.getElementById('profileBox').classList.remove('show');
+  document.getElementById('profileBox').classList.add('hidden-view');
 
   try {
     const res = await fetch('/api/analyze', {
@@ -158,13 +487,15 @@ async function analyze() {
 
     if (profile.error) {
       setStatus('Could not analyze: ' + esc2(profile.error), 'llm-no');
-      document.getElementById('testCaseSections').innerHTML = '<div class="empty-state">Analysis failed -- see status above.</div>';
+      document.getElementById('scenarioCards').innerHTML = '<div class="font-body-sm text-body-sm text-error col-span-full">Analysis failed -- see status above.</div>';
+      document.getElementById('scenariosSubtitle').textContent = 'Analysis failed';
     } else if (profile.is_llm_site) {
       setStatus('LLM interface detected. Objective: ' + esc2(profile.objective), 'llm-yes');
-      renderTestCaseSections(profile.test_cases || {});
+      renderScenarioCards(profile.test_cases || {});
     } else {
       setStatus('This site does not have LLM.', 'llm-no');
-      document.getElementById('testCaseSections').innerHTML = '<div class="empty-state">This site does not have LLM -- nothing to test.</div>';
+      document.getElementById('scenarioCards').innerHTML = '<div class="font-body-sm text-body-sm text-text-muted col-span-full">This site does not have LLM -- nothing to test.</div>';
+      document.getElementById('scenariosSubtitle').textContent = 'No LLM interface detected';
     }
   } catch (e) {
     setStatus('Request failed: ' + esc2(String(e)), 'llm-no');
@@ -183,26 +514,26 @@ function renderProfile(p) {
     ['Signals', (p.signals || []).map(esc2).join('<br>')],
     ['Endpoint(s) found', (p.endpoints || []).map(e => esc2(e.method + ' ' + e.path)).join('<br>') || '(none)'],
   ];
-  dl.innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
-  box.classList.add('show');
+  dl.innerHTML = rows.map(([k, v]) => `<dt class="text-text-muted">${k}</dt><dd class="text-on-surface">${v}</dd>`).join('');
+  box.classList.remove('hidden-view');
 }
 
 function renderConfigNeeds(needs) {
   const box = document.getElementById('configBox');
   if (!needs || !needs.missing_fields || needs.missing_fields.length === 0) {
-    box.style.display = 'none';
+    box.classList.add('hidden-view');
     return;
   }
   document.getElementById('configExplain').textContent =
     `Endpoint ${needs.endpoint_used} also needs field(s) this tool cannot determine on its own -- ` +
     `every site is unique, so these values must come from you, not a guess:`;
   document.getElementById('configForm').innerHTML = needs.missing_fields.map(f =>
-    `<div style="margin-bottom:6px;"><label style="display:inline-block; width:140px; color:var(--muted); font-size:12px;">${esc2(f)}</label>` +
-    `<input type="text" id="extrafield-${esc2(f)}" placeholder="value for ${esc2(f)}" style="width:300px; padding:6px 8px;"></div>`
+    `<div><label class="inline-block w-40 font-body-sm text-body-sm text-text-muted">${esc2(f)}</label>` +
+    `<input type="text" id="extrafield-${esc2(f)}" placeholder="value for ${esc2(f)}" class="w-72 px-2 py-1 border border-border-subtle rounded font-code-snippet text-code-snippet"></div>`
   ).join('');
   document.getElementById('configPathLabel').textContent = needs.config_path || 'config/site_overrides.json';
   document.getElementById('configSnippet').textContent = needs.config_snippet || '';
-  box.style.display = 'block';
+  box.classList.remove('hidden-view');
 }
 
 function collectExtraFields() {
@@ -217,6 +548,77 @@ function collectExtraFields() {
   return any ? out : null;
 }
 
+// ============================================================================
+// Dashboard: scenario cards (replaces the old flat tc-sections)
+// ============================================================================
+function renderScenarioCards(testCases) {
+  const container = document.getElementById('scenarioCards');
+  const keys = Object.keys(testCases);
+  document.getElementById('scenariosSubtitle').textContent = keys.length + ' scenario(s) applicable to this target';
+
+  if (keys.length === 0) {
+    container.innerHTML = '<div class="font-body-sm text-body-sm text-text-muted col-span-full">No test scenarios available.</div>';
+    return;
+  }
+  container.innerHTML = keys.map(tcKey => {
+    const tc = testCases[tcKey];
+    const n = (tc.prompts || []).length;
+    promptMeta = promptMeta; // no-op, keep lint calm
+    return `<div onclick="openLiveView('${tcKey}')"
+        class="bg-surface-container-lowest border border-border-subtle rounded-xl p-6 hover:border-secondary transition-colors group cursor-pointer">
+      <div class="flex justify-between items-start mb-4">
+        <span class="material-symbols-outlined text-text-muted group-hover:text-primary transition-colors">shield</span>
+        <span class="inline-flex items-center px-2 py-0.5 rounded font-label-caps text-[10px] uppercase tracking-wider bg-surface-container text-text-muted">${n} risks</span>
+      </div>
+      <h3 class="font-headline-sm text-headline-sm text-primary mb-2">${esc2(tc.label)}</h3>
+      <p class="font-body-sm text-body-sm text-text-muted">${esc2(scenarioDesc(tcKey, tc.label))}</p>
+    </div>`;
+  }).join('');
+
+  keys.forEach(tcKey => {
+    (testCases[tcKey].prompts || []).forEach(p => { promptMeta[tcKey + ':' + p.risk_id] = p; });
+  });
+}
+
+// ============================================================================
+// Live Testing view
+// ============================================================================
+function renderLiveEmptyOrContent() {
+  const hasAny = lastAnalysis && lastAnalysis.test_cases && Object.keys(lastAnalysis.test_cases).length > 0;
+  document.getElementById('liveEmptyState').classList.toggle('hidden-view', !!hasAny);
+  document.getElementById('liveContent').classList.toggle('hidden-view', !hasAny);
+  if (hasAny) {
+    renderLiveTcTabs();
+    if (!window.__activeTc || !lastAnalysis.test_cases[window.__activeTc]) {
+      openLiveView(Object.keys(lastAnalysis.test_cases)[0]);
+    }
+  }
+}
+
+function renderLiveTcTabs() {
+  const keys = Object.keys(lastAnalysis.test_cases || {});
+  const tabs = document.getElementById('liveTcTabs');
+  if (keys.length <= 1) { tabs.innerHTML = ''; return; }
+  tabs.innerHTML = keys.map(k => {
+    const active = k === window.__activeTc;
+    return `<button onclick="openLiveView('${k}')" class="px-3 py-1.5 rounded font-label-caps text-label-caps border ${active ? 'bg-primary text-on-primary border-primary' : 'bg-surface-container-lowest text-on-surface-variant border-border-subtle'}">${esc2(lastAnalysis.test_cases[k].label)}</button>`;
+  }).join('');
+}
+
+function openLiveView(tcKey) {
+  window.__activeTc = tcKey;
+  showView('live');
+  document.getElementById('liveEmptyState').classList.add('hidden-view');
+  document.getElementById('liveContent').classList.remove('hidden-view');
+  renderLiveTcTabs();
+  const tc = lastAnalysis.test_cases[tcKey];
+  document.getElementById('liveTcLabel').textContent = tc.label;
+  document.getElementById('liveTargetUrl').textContent = document.getElementById('url').value.trim();
+  document.getElementById('runAllBtn').textContent = `Run All ${(tc.prompts || []).length} (batch)`;
+  renderRiskCards(tcKey, tc.prompts || []);
+  renderTelemetry(tcKey);
+}
+
 function verdictClass(v) {
   if (!v) return 'na';
   if (v.startsWith('DUPLICATE_RESPONSE')) return 'dup';
@@ -226,116 +628,177 @@ function verdictClass(v) {
   return 'review';
 }
 
+function cardBorderClass(vclass) {
+  return {held: 'border-verdict-refused', review: 'border-verdict-review', dup: 'border-verdict-review',
+          err: 'border-error', na: 'border-border-subtle opacity-70'}[vclass] || 'border-border-subtle';
+}
+function pillClass(vclass) {
+  return {held: 'bg-verdict-refused', review: 'bg-verdict-review', dup: 'bg-verdict-review',
+          err: 'bg-error', na: 'bg-outline'}[vclass] || 'bg-outline';
+}
+function pillLabel(v) {
+  if (!v) return 'UNTESTED';
+  if (v.startsWith('DUPLICATE_RESPONSE')) return 'DUPLICATE';
+  if (v.startsWith('NOT_APPLICABLE')) return 'N/A';
+  if (v.startsWith('HELD')) return 'HELD';
+  if (v.startsWith('ERROR') || v === 'NO_RESPONSE') return 'ERROR';
+  return 'NEEDS REVIEW';
+}
+function owaspShortCode(citation) {
+  const m = (citation || '').match(/OWASP (LLM\d{2}:\d{4})/);
+  return m ? m[1] : (citation || '').slice(0, 24);
+}
+
+function assessmentBox(cls, html) {
+  const styles = {
+    muted:  'border-outline-variant bg-surface-container-low text-text-muted',
+    held:   'border-verdict-refused bg-verdict-refused/5 text-verdict-refused',
+    review: 'border-verdict-review bg-verdict-review/5 text-verdict-review',
+    err:    'border-error bg-error/5 text-error',
+  }[cls] || 'border-outline-variant bg-surface-container-low text-text-muted';
+  return `<div class="border-l-4 ${styles} p-3 rounded-r font-body-sm text-body-sm">${html}</div>`;
+}
+
 function assessmentHtml(entry) {
   if (!entry) {
-    return `<div class="assessment untested">Not tested yet &mdash; whether remediation is actually needed here is unknown until this row is tested.</div>`;
+    return assessmentBox('muted', 'Not tested yet -- whether remediation is actually needed here is unknown until this row is tested.');
   }
   if (entry.sent === false) {
-    return `<div class="assessment na">Not sent &mdash; no real channel exists for this risk against this target, so this run says nothing about it either way. Remediation below is still worth applying if this application later gains that capability.</div>`;
+    return assessmentBox('muted', 'Not sent -- no real channel exists for this risk against this target, so this run says nothing about it either way. Remediation is still worth applying if this application later gains that capability.');
   }
   const v = entry.verdict || '';
   if (v.startsWith('DUPLICATE_RESPONSE')) {
-    return `<div class="assessment dup"><b>This run: DUPLICATE_RESPONSE.</b> This exact reply text also came back for at least one other prompt in the same run &mdash; almost certainly a canned or rate-limited message, not a real answer to this specific prompt. Re-test later (once any rate limit resets) before drawing any conclusion; this result doesn't tell you whether the attack would succeed or fail.</div>`;
+    return assessmentBox('review', '<b>This run: DUPLICATE_RESPONSE.</b> This exact reply text also came back for at least one other prompt in the same run -- almost certainly a canned or rate-limited message, not a real answer to this specific prompt. Re-test later before drawing any conclusion.');
   }
   if (v.startsWith('HELD')) {
-    return `<div class="assessment held"><b>This run: HELD.</b> A refusal marker matched the response &mdash; this specific attempt did not visibly succeed. Remediation below is defense-in-depth to keep it that way, not evidence of an active gap (heuristic verdict &mdash; verify manually before relying on this).</div>`;
+    return assessmentBox('held', '<b>This run: HELD.</b> A refusal marker matched the response -- this specific attempt did not visibly succeed (heuristic verdict -- verify manually before relying on this).');
   }
   if (v.startsWith('ERROR') || v === 'NO_RESPONSE') {
-    return `<div class="assessment err"><b>This run: ${esc2(v)}.</b> Inconclusive &mdash; whether remediation is needed is unknown until a real result is obtained. Re-test.</div>`;
+    return assessmentBox('err', `<b>This run: ${esc2(v)}.</b> Inconclusive -- re-test.`);
   }
-  return `<div class="assessment review"><b>This run: NEEDS_REVIEW.</b> No refusal marker matched &mdash; read the actual response in the middle column before concluding anything. If it shows real compliance (the model actually disclosed/acted on the injected instruction), the remediation below applies directly; if it's an unrelated or canned reply, it doesn't.</div>`;
+  return assessmentBox('review', '<b>This run: NEEDS_REVIEW.</b> No refusal marker matched -- read the actual response before concluding anything. If it shows real compliance, the remediation applies directly; if it\'s an unrelated or canned reply, it doesn\'t.');
 }
 
-function referenceCellHtml(tcKey, p, entry) {
+function referenceBlockHtml(p) {
   const remediation = (p.remediation || []).map(r => `<li>${esc2(r)}</li>`).join('');
   return `
-    <div class="ref-label">What it means (live from OWASP)</div>
-    <div class="ref-quote">${esc2(p.meaning || '(not available)')}</div>
-    <div class="ref-label">Assessment (this run)</div>
-    <div id="ref-assessment-${tcKey}-${p.risk_id}">${assessmentHtml(entry)}</div>
-    <div class="ref-label">Remediation</div>
-    <ul class="ref-remediation">${remediation || '<li>(not available)</li>'}</ul>
+    <div class="font-label-caps text-label-caps text-text-muted mt-3">What it means (live from OWASP)</div>
+    <div class="font-body-sm text-body-sm italic text-on-surface mt-1">${esc2(p.meaning || '(not available)')}</div>
+    <div class="font-label-caps text-label-caps text-text-muted mt-3">Remediation</div>
+    <ul class="font-body-sm text-body-sm list-disc pl-5 mt-1 space-y-1">${remediation || '<li>(not available)</li>'}</ul>
   `;
 }
 
-function renderTestCaseSections(testCases) {
-  const container = document.getElementById('testCaseSections');
-  const keys = Object.keys(testCases);
-  if (keys.length === 0) {
-    container.innerHTML = '<div class="empty-state">No test cases available.</div>';
-    return;
-  }
-  container.innerHTML = keys.map(tcKey => {
-    const tc = testCases[tcKey];
-    return `<section class="tc-section" id="tc-section-${tcKey}">
-      <div class="tc-header">
-        <h2>${esc2(tc.label)}</h2>
-        <span class="badge">${(tc.prompts || []).length} risk categories &middot; reference live from OWASP</span>
-        <button class="secondary" onclick="runTest('${tcKey}')" id="testBtn-${tcKey}">Run All ${(tc.prompts || []).length} (batch)</button>
-      </div>
-      <div id="table-${tcKey}"></div>
-    </section>`;
-  }).join('');
-
-  keys.forEach(tcKey => renderPromptTable(tcKey, testCases[tcKey].prompts || []));
-}
-
-function renderPromptTable(tcKey, prompts) {
+function renderRiskCards(tcKey, prompts) {
   prompts.forEach(p => { promptMeta[tcKey + ':' + p.risk_id] = p; });
 
-  const rows = prompts.map(p => {
+  document.getElementById('riskCards').innerHTML = prompts.map(p => {
     const rowKey = tcKey + '-' + p.risk_id;
-    const leftEditable = p.prompt !== null
+    const vclass = 'na';
+    const editable = p.prompt !== null
       ? `<textarea class="prompt-edit" id="prompt-${rowKey}">${esc2(p.prompt)}</textarea>` +
         (p.followup_prompt
-          ? `<div class="followup"><span class="followup-label">Follow-up prompt</span>
-              <textarea class="prompt-edit" id="followup-${rowKey}">${esc2(p.followup_prompt)}</textarea></div>`
+          ? `<div class="mt-2 pt-2 border-t border-dashed border-border-subtle"><span class="font-label-caps text-label-caps text-text-muted">Follow-up prompt</span>
+              <textarea class="prompt-edit mt-1" id="followup-${rowKey}">${esc2(p.followup_prompt)}</textarea></div>`
           : '') +
-        `<button class="small" onclick="testOne('${tcKey}', ${p.risk_id})" id="testbtn-${rowKey}">Test this prompt</button>` +
-        `<span class="row-status" id="rowstatus-${rowKey}"></span>`
-      : `<div class="note">No prompt sent -- no real channel exists for this risk against this target (see note above).</div>`;
+        `<div class="flex items-center gap-2 mt-2">
+           <button onclick="testOne('${tcKey}', ${p.risk_id})" id="testbtn-${rowKey}"
+             class="bg-surface-container-high text-on-surface font-label-caps text-label-caps px-3 py-1.5 rounded hover:bg-surface-container-highest">Test this prompt</button>
+           <span class="font-body-sm text-body-sm text-text-muted" id="rowstatus-${rowKey}"></span>
+         </div>`
+      : `<div class="font-body-sm text-body-sm text-text-muted">No prompt sent -- no real channel exists for this risk against this target.</div>`;
 
-    return `<tr>
-      <td class="col-left">
-        <div class="risk-name">${p.risk_id}. ${esc2(p.risk_name)}</div>
-        <div class="risk-cite">${esc2(p.citation)}</div>
-        <div class="note">${esc2(p.applicability_note)}</div>
-        ${leftEditable}
-      </td>
-      <td class="col-mid">
-        <div id="result-${rowKey}">Not tested yet.</div>
-      </td>
-      <td class="col-right">
-        ${referenceCellHtml(tcKey, p, null)}
-      </td>
-    </tr>`;
+    return `<div id="card-${rowKey}" class="bg-surface-container-lowest border ${cardBorderClass(vclass)} rounded-lg p-6 mb-4">
+      <div class="flex justify-between items-start mb-2">
+        <div>
+          <div class="font-label-caps text-label-caps text-text-muted mb-1" id="pill-${rowKey}">
+            <span class="inline-block px-2 py-0.5 rounded ${pillClass(vclass)} text-white">UNTESTED</span>
+          </div>
+          <h3 class="font-headline-md text-headline-md text-primary">${p.risk_id}. ${esc2(p.risk_name)}</h3>
+        </div>
+      </div>
+      <p class="font-body-sm text-body-sm text-text-muted mb-1">${esc2(p.citation)}</p>
+      <p class="font-body-sm text-body-sm text-text-muted mb-4">${esc2(p.applicability_note)}</p>
+      ${editable}
+      <div id="result-${rowKey}" class="mt-4 pt-4 border-t border-border-subtle font-body-sm text-body-sm text-text-muted"></div>
+      <div id="ref-assessment-${tcKey}-${p.risk_id}" class="mt-3">${assessmentHtml(null)}</div>
+      <details class="mt-3">
+        <summary class="font-label-caps text-label-caps text-text-muted cursor-pointer">OWASP Reference &amp; Remediation</summary>
+        <div id="refblock-${rowKey}">${referenceBlockHtml(p)}</div>
+      </details>
+    </div>`;
   }).join('');
-
-  document.getElementById('table-' + tcKey).innerHTML = `<table>
-    <thead><tr>
-      <th class="col-left">Risk Category &amp; Attack Prompt</th>
-      <th class="col-mid">Test Result</th>
-      <th class="col-right">What It Means &amp; Remediation (OWASP)</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
 }
 
 function resultCellHtml(r) {
   const vclass = verdictClass(r.verdict);
   const main = r.sent
-    ? `<span class="verdict ${vclass}">${esc2(r.verdict)}</span>
-       <div class="response-text">${esc2(r.response_text || r.error || '(empty response)')}</div>`
-    : `<span class="verdict na">NOT APPLICABLE</span>`;
+    ? `<span class="inline-block px-2 py-0.5 rounded font-label-caps text-label-caps text-white ${pillClass(vclass)}">${esc2(r.verdict)}</span>
+       <div class="response-text mt-2">${esc2(r.response_text || r.error || '(empty response)')}</div>`
+    : `<span class="inline-block px-2 py-0.5 rounded font-label-caps text-label-caps text-white bg-outline">NOT APPLICABLE</span>`;
   const followup = r.followup_prompt
-    ? `<div class="followup"><span class="followup-label">Follow-up result</span><br>
-         <span class="verdict ${verdictClass(r.followup_verdict)}">${esc2(r.followup_verdict)}</span>
-         <div class="response-text">${esc2(r.followup_response_text || r.followup_error || '(empty response)')}</div>
+    ? `<div class="mt-2 pt-2 border-t border-dashed border-border-subtle"><span class="font-label-caps text-label-caps text-text-muted">Follow-up result</span><br>
+         <span class="inline-block px-2 py-0.5 rounded font-label-caps text-label-caps text-white ${pillClass(verdictClass(r.followup_verdict))}">${esc2(r.followup_verdict)}</span>
+         <div class="response-text mt-2">${esc2(r.followup_response_text || r.followup_error || '(empty response)')}</div>
        </div>`
     : '';
   return main + followup;
 }
 
+function updateCardChrome(tcKey, riskId, verdict) {
+  const rowKey = tcKey + '-' + riskId;
+  const vclass = verdictClass(verdict);
+  const card = document.getElementById('card-' + rowKey);
+  if (card) {
+    card.className = card.className.replace(/border-(verdict-refused|verdict-review|error|border-subtle)(\s+opacity-70)?/g, '').trim();
+    card.classList.add(...cardBorderClass(vclass).split(' '));
+  }
+  const pill = document.getElementById('pill-' + rowKey);
+  if (pill) pill.innerHTML = `<span class="inline-block px-2 py-0.5 rounded ${pillClass(vclass)} text-white">${esc2(pillLabel(verdict))}</span>`;
+}
+
+// ============================================================================
+// Telemetry -- appends real, client-observable lifecycle events. No fabricated
+// per-item progress; a batch run is one atomic request, so results appear
+// together when the response lands, exactly reflecting how the tool works.
+// ============================================================================
+function logTelemetry(tcKey, text, cls) {
+  if (!telemetryByTc[tcKey]) telemetryByTc[tcKey] = [];
+  telemetryByTc[tcKey].push({time: new Date().toLocaleTimeString(), text, cls: cls || 'line-info'});
+  if (tcKey === window.__activeTc) renderTelemetry(tcKey);
+}
+function renderTelemetry(tcKey) {
+  const panel = document.getElementById('telemetry-panel');
+  const lines = telemetryByTc[tcKey] || [];
+  if (lines.length === 0) {
+    panel.innerHTML = `<div class="line-info">[idle] No requests sent yet for this test case.</div>`;
+    return;
+  }
+  panel.innerHTML = lines.map(l => `<div class="${l.cls}">[${l.time}] ${esc2(l.text)}</div>`).join('');
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function startLiveTimer() {
+  liveTimerStart = Date.now();
+  document.getElementById('liveSpinnerIcon').classList.remove('hidden-view');
+  liveTimerHandle = setInterval(() => {
+    const s = Math.floor((Date.now() - liveTimerStart) / 1000);
+    const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+    const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    document.getElementById('liveTimer').textContent = `${hh}:${mm}:${ss}`;
+  }, 1000);
+}
+function stopLiveTimer() {
+  if (liveTimerHandle) clearInterval(liveTimerHandle);
+  liveTimerHandle = null;
+  document.getElementById('liveSpinnerIcon').classList.add('hidden-view');
+}
+
+// ============================================================================
+// Test actions -- same endpoints, same request bodies, same response handling
+// as before. Only additive telemetry/card-chrome calls were inserted.
+// ============================================================================
 async function testOne(tcKey, riskId) {
   const url = document.getElementById('url').value.trim();
   const meta = promptMeta[tcKey + ':' + riskId] || {};
@@ -350,13 +813,11 @@ async function testOne(tcKey, riskId) {
   promptEl.disabled = true;
   if (followupEl) followupEl.disabled = true;
   statusEl.innerHTML = '<span class="spinner"></span> testing...';
+  logTelemetry(tcKey, `Sending single-prompt request -- risk ${riskId} (${meta.risk_name || ''})...`);
 
   try {
     const body = {
-      url,
-      test_case: tcKey,
-      risk_id: riskId,
-      prompt: promptEl.value,
+      url, test_case: tcKey, risk_id: riskId, prompt: promptEl.value,
       followup_prompt: followupEl ? followupEl.value : null,
       followup_same_session: !!meta.followup_same_session,
       extra_fields: collectExtraFields(),
@@ -366,18 +827,24 @@ async function testOne(tcKey, riskId) {
     });
     const entry = await res.json();
     if (entry.error && entry.sent === undefined) {
-      document.getElementById('result-' + rowKey).innerHTML = `<span class="verdict err">ERROR</span><div class="response-text">${esc2(entry.error)}</div>`;
-      document.getElementById('ref-assessment-' + rowKey).innerHTML = assessmentHtml({sent: true, verdict: 'ERROR'});
+      document.getElementById('result-' + rowKey).innerHTML = `<span class="inline-block px-2 py-0.5 rounded font-label-caps text-label-caps text-white bg-error">ERROR</span><div class="response-text mt-2">${esc2(entry.error)}</div>`;
+      const rb = document.getElementById('refblock-' + rowKey);
+      if (rb) document.getElementById('ref-assessment-' + tcKey + '-' + riskId).innerHTML = assessmentHtml({sent: true, verdict: 'ERROR'});
       statusEl.textContent = '';
+      logTelemetry(tcKey, `Risk ${riskId} -> ERROR: ${entry.error}`, 'line-warn');
     } else {
       document.getElementById('result-' + rowKey).innerHTML = resultCellHtml(entry);
-      document.getElementById('ref-assessment-' + rowKey).innerHTML = assessmentHtml(entry);
+      document.getElementById('ref-assessment-' + tcKey + '-' + riskId).innerHTML = assessmentHtml(entry);
+      updateCardChrome(tcKey, riskId, entry.verdict);
       statusEl.textContent = entry._evidence_file ? 'saved' : '';
+      logTelemetry(tcKey, `Risk ${riskId} -> ${entry.verdict || 'unknown'}`, entry.verdict && entry.verdict.startsWith('HELD') ? 'line-ok' : 'line-warn');
+      if (entry.endpoint_used) metaByTc[tcKey] = {endpoint_used: entry.endpoint_used, timestamp: entry.timestamp};
+      recordResult(tcKey, riskId, entry);
     }
   } catch (e) {
     statusEl.textContent = '';
-    document.getElementById('result-' + rowKey).innerHTML = `<span class="verdict err">ERROR</span><div class="response-text">${esc2(String(e))}</div>`;
-    document.getElementById('ref-assessment-' + rowKey).innerHTML = assessmentHtml({sent: true, verdict: 'ERROR'});
+    document.getElementById('result-' + rowKey).innerHTML = `<span class="inline-block px-2 py-0.5 rounded font-label-caps text-label-caps text-white bg-error">ERROR</span><div class="response-text mt-2">${esc2(String(e))}</div>`;
+    logTelemetry(tcKey, `Risk ${riskId} -> request failed: ${String(e)}`, 'line-warn');
   } finally {
     btn.disabled = false;
     promptEl.disabled = false;
@@ -387,10 +854,12 @@ async function testOne(tcKey, riskId) {
 
 async function runTest(tcKey) {
   const url = document.getElementById('url').value.trim();
-  const btn = document.getElementById('testBtn-' + tcKey);
-  btn.disabled = true;
+  const btn = document.getElementById('runAllBtn');
+  if (btn) btn.disabled = true;
   document.getElementById('analyzeBtn').disabled = true;
-  setStatus('<span class="spinner"></span> Running the batch for ' + esc2(tcKey) + ' against the live endpoint (this sends real requests, can take up to a minute)... note: this resets any edits you made to individual prompt boxes in this test case back to the standard prompt.', '');
+  setStatus('<span class="spinner"></span> Running the batch for ' + esc2(tcKey) + ' against the live endpoint (this sends real requests, can take up to a minute)...', '');
+  logTelemetry(tcKey, `Starting batch run -- sending ${(promptMeta && Object.keys(promptMeta).filter(k => k.startsWith(tcKey + ':')).length) || 'N'} prompts to the live endpoint...`);
+  startLiveTimer();
 
   try {
     const extra_fields = collectExtraFields();
@@ -398,23 +867,30 @@ async function runTest(tcKey) {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url, test_case: tcKey, extra_fields})
     });
     const evidence = await res.json();
+    if (evidence.endpoint_used) metaByTc[tcKey] = {endpoint_used: evidence.endpoint_used, timestamp: evidence.timestamp};
     applyBatchResults(tcKey, evidence);
+    (evidence.results || []).forEach(r => {
+      logTelemetry(tcKey, `Risk ${r.risk_id} (${r.risk_name}) -> ${r.verdict}`, r.verdict && r.verdict.startsWith('HELD') ? 'line-ok' : 'line-warn');
+    });
     let statusMsg = 'Done. Verdict: ' + esc2(evidence.verdict || 'unknown');
     if (evidence.endpoint_used) statusMsg += ' -- endpoint used: ' + esc2(evidence.endpoint_used);
     if (evidence.endpoint_warning) statusMsg += ' | ' + esc2(evidence.endpoint_warning);
     if (evidence._evidence_file) statusMsg += ' -- evidence saved to ' + esc2(evidence._evidence_file);
     setStatus(statusMsg, evidence.verdict === 'COMPLETE' ? 'llm-yes' : 'llm-no');
+    logTelemetry(tcKey, `Batch complete. Verdict: ${evidence.verdict || 'unknown'}`, 'line-ok');
   } catch (e) {
     setStatus('Request failed: ' + esc2(String(e)), 'llm-no');
+    logTelemetry(tcKey, `Batch failed: ${String(e)}`, 'line-warn');
   } finally {
-    btn.disabled = false;
+    if (btn) btn.disabled = false;
     document.getElementById('analyzeBtn').disabled = false;
+    stopLiveTimer();
   }
 }
 
 function applyBatchResults(tcKey, evidence) {
   if (!evidence.results || evidence.results.length === 0) {
-    document.getElementById('table-' + tcKey).innerHTML = `<div class="empty-state">${esc2(evidence.verdict || 'No results.')}</div>`;
+    document.getElementById('riskCards').innerHTML = `<div class="font-body-sm text-body-sm text-text-muted">${esc2(evidence.verdict || 'No results.')}</div>`;
     return;
   }
   evidence.results.forEach(r => {
@@ -425,9 +901,99 @@ function applyBatchResults(tcKey, evidence) {
     if (followupEl && r.followup_prompt) followupEl.value = r.followup_prompt;
     const resultEl = document.getElementById('result-' + rowKey);
     if (resultEl) resultEl.innerHTML = resultCellHtml(r);
-    const assessEl = document.getElementById('ref-assessment-' + rowKey);
+    const assessEl = document.getElementById('ref-assessment-' + tcKey + '-' + r.risk_id);
     if (assessEl) assessEl.innerHTML = assessmentHtml(r);
+    updateCardChrome(tcKey, r.risk_id, r.verdict);
+    recordResult(tcKey, r.risk_id, r);
   });
+}
+
+// ============================================================================
+// Reports -- built entirely client-side from cached evidence already
+// returned by /api/test. No new backend call.
+// ============================================================================
+function renderReport() {
+  const tcKeys = Object.keys(testResultsByTc).filter(k => Object.keys(testResultsByTc[k]).length > 0);
+  document.getElementById('reportEmptyState').classList.toggle('hidden-view', tcKeys.length > 0);
+  document.getElementById('reportContent').classList.toggle('hidden-view', tcKeys.length === 0);
+  if (tcKeys.length === 0) return;
+
+  // Every risk this tool KNOWS about for a shown test case (from promptMeta),
+  // overlaid with a real result where one exists -- so "never tested this
+  // session" (has a real channel, just wasn't run yet) is told apart from
+  // "NOT_APPLICABLE" (no real channel at all) rather than both looking like
+  // silence.
+  const rowsByTc = {};
+  tcKeys.forEach(tcKey => {
+    const riskIds = new Set();
+    Object.keys(promptMeta).forEach(k => { if (k.startsWith(tcKey + ':')) riskIds.add(Number(k.split(':')[1])); });
+    Object.keys(testResultsByTc[tcKey] || {}).forEach(id => riskIds.add(Number(id)));
+    rowsByTc[tcKey] = Array.from(riskIds).sort((a, b) => a - b).map(riskId => {
+      const tested = testResultsByTc[tcKey] && testResultsByTc[tcKey][riskId];
+      if (tested) return tested;
+      const meta = promptMeta[tcKey + ':' + riskId] || {};
+      const note = meta.prompt === null ? meta.applicability_note : ((meta.applicability_note || '') + ' Not tested this session yet.');
+      return {...meta, sent: false, verdict: null, applicability_note: note};
+    });
+  });
+
+  let totalRows = 0, sentRows = 0, latestTs = null, endpointUsed = null;
+  tcKeys.forEach(k => {
+    (rowsByTc[k] || []).forEach(r => { totalRows++; if (r.sent) sentRows++; });
+    const meta = metaByTc[k];
+    if (meta && meta.endpoint_used && !endpointUsed) endpointUsed = meta.endpoint_used;
+    if (meta && meta.timestamp && (!latestTs || meta.timestamp > latestTs)) latestTs = meta.timestamp;
+  });
+
+  document.getElementById('reportTargetUrl').textContent = document.getElementById('url').value.trim();
+  document.getElementById('reportDate').textContent = latestTs ? new Date(latestTs).toLocaleString() : '(unknown)';
+  document.getElementById('reportEndpoint').textContent = endpointUsed || '(none discovered)';
+  const coverage = totalRows > 0 ? Math.round((sentRows / totalRows) * 100) : 0;
+  const covEl = document.getElementById('reportCoverage');
+  covEl.textContent = coverage + '%';
+  covEl.className = 'font-body-lg text-body-lg font-semibold ' + (coverage >= 80 ? 'text-verdict-refused' : coverage >= 40 ? 'text-verdict-review' : 'text-error');
+
+  document.getElementById('reportFindings').innerHTML = tcKeys.map(tcKey => {
+    const label = (lastAnalysis && lastAnalysis.test_cases[tcKey] && lastAnalysis.test_cases[tcKey].label) || tcKey;
+    const rows = (rowsByTc[tcKey] || []).filter(r => r.sent).map(r => {
+      const vclass = verdictClass(r.verdict);
+      const borderClass = vclass === 'review' || vclass === 'dup' ? 'border-verdict-review shadow-[0_0_0_1px_rgba(217,119,6,0.2)]' : 'border-border-subtle';
+      return `<div class="bg-surface-container-lowest border ${borderClass} rounded-lg p-6 grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+        <div class="md:col-span-3">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-headline-sm text-headline-sm text-primary">${esc2(r.risk_name)}</h3>
+            <span class="${pillClass(vclass)} text-white font-label-caps text-label-caps px-2 py-1 rounded">${esc2(pillLabel(r.verdict))}</span>
+          </div>
+          <p class="font-label-caps text-label-caps text-text-muted">${esc2(owaspShortCode(r.citation))}</p>
+        </div>
+        <div class="md:col-span-5 md:border-l border-border-subtle md:pl-6">
+          <h4 class="font-label-caps text-label-caps text-text-muted mb-2">OWASP REFERENCE</h4>
+          <p class="font-body-sm text-body-sm text-on-surface">${esc2(r.meaning || '(not available)')}</p>
+        </div>
+        <div class="md:col-span-4 md:border-l border-border-subtle md:pl-6 bg-surface-container-low p-4 rounded">
+          <h4 class="font-label-caps text-label-caps text-text-muted mb-2">REMEDIATION / CONTROL</h4>
+          <p class="font-code-snippet text-code-snippet text-on-surface">${(r.remediation || []).map(esc2).join('<br><br>') || 'N/A'}</p>
+        </div>
+      </div>`;
+    }).join('') || '<p class="font-body-sm text-body-sm text-text-muted">No risks sent yet for this test case -- see Untested Scope below.</p>';
+    return `<div>
+      <h3 class="font-headline-sm text-headline-sm text-text-muted mb-3">${esc2(label)}</h3>
+      <div class="space-y-4">${rows}</div>
+    </div>`;
+  }).join('');
+
+  const untestedCards = [];
+  tcKeys.forEach(tcKey => {
+    (rowsByTc[tcKey] || []).filter(r => !r.sent).forEach(r => {
+      untestedCards.push(`<div class="border border-border-subtle p-4 rounded bg-surface-container-low opacity-75">
+        <h4 class="font-label-caps text-label-caps text-text-muted mb-2">${esc2(owaspShortCode(r.citation))}: ${esc2(r.risk_name)}</h4>
+        <p class="font-body-sm text-body-sm text-on-surface-variant">${esc2(r.applicability_note || 'Not sent this run.')}</p>
+      </div>`);
+    });
+  });
+  document.getElementById('reportUntested').innerHTML = untestedCards.length
+    ? untestedCards.join('')
+    : '<p class="font-body-sm text-body-sm text-text-muted col-span-full">Every risk row across the test cases run this session was sent.</p>';
 }
 </script>
 
