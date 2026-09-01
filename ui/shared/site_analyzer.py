@@ -16,6 +16,16 @@ generalizes the exact manual process used to reverse-engineer a real
 site's chat API contract (fetch HTML -> find bundle -> fetch bundle ->
 grep fetch() calls) into code that runs against any URL.
 
+A production bundle inlines an app's whole module graph into the one
+script tag it references, so following <script src> once is normally
+enough. A dev server (e.g. `vite dev`) instead serves each source file as
+its own unbundled ES module -- the entry script is a thin `main.jsx` that
+merely `import`s the real app, which itself imports the component that
+actually owns the chat fetch() call. So bundle-following also walks
+same-origin `import ... from "..."` / `import("...")` targets found
+inside each fetched file, breadth-first, to a bounded depth/count --
+letting a dev-server target get the same detection depth as a prod one.
+
 This stage never POSTs anywhere -- only GETs the target's own page and its
 same-origin script bundles.
 """
@@ -48,6 +58,39 @@ SCRIPT_SRC_RE = re.compile(r'<script[^>]+src=["\']([^"\']+)["\']', re.IGNORECASE
 TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 DESC_RE = re.compile(r'<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']+)["\']', re.IGNORECASE)
 H1_RE = re.compile(r"<h1[^>]*>(.*?)</h1>", re.IGNORECASE | re.DOTALL)
+
+# ES module import/export targets -- how bundle-following reaches a dev
+# server's unbundled module graph (see module docstring). Deliberately
+# permissive (lazy match up to the first quote) since this is a heuristic
+# grep, not a JS parser -- same tradeoff already made by FETCH_CALL_RE.
+STATIC_IMPORT_RE = re.compile(r'\bimport\s+(?:[^\'";]*?\bfrom\s+)?["\']([^"\']+)["\']')
+EXPORT_FROM_RE = re.compile(r'\bexport\s+[^\'";]*?\bfrom\s+["\']([^"\']+)["\']')
+DYNAMIC_IMPORT_RE = re.compile(r'\bimport\s*\(\s*["\']([^"\']+)["\']')
+
+# Bundle-crawl bounds -- generous enough to reach a component a few
+# import-hops from the entry script (observed: 3 hops deep on a real Vite
+# dev server), capped so a large app's full module graph can't turn one
+# analyze() call into hundreds of requests.
+MAX_BUNDLES = 40
+MAX_IMPORT_DEPTH = 6
+# Only worth opening files that could plausibly contain a fetch() call or
+# vendor string; skip stylesheets/images/fonts reached via `import "./x.css"`.
+FOLLOWABLE_EXTENSIONS = {"js", "jsx", "ts", "tsx", "mjs", "cjs", "vue", "svelte"}
+
+
+def _extract_import_targets(text):
+    targets = set()
+    for rx in (STATIC_IMPORT_RE, EXPORT_FROM_RE, DYNAMIC_IMPORT_RE):
+        targets.update(rx.findall(text))
+    return targets
+
+
+def _is_followable(path):
+    last_segment = path.rsplit("/", 1)[-1]
+    if "." not in last_segment:
+        return True  # extensionless import specifier (common for source files)
+    ext = last_segment.rsplit(".", 1)[-1].lower()
+    return ext in FOLLOWABLE_EXTENSIONS
 
 
 def _fetch(url, max_bytes=800_000):
@@ -84,16 +127,37 @@ def analyze(url):
 
     bundle_texts = []
     fetched_bundles = []
-    for src in SCRIPT_SRC_RE.findall(html)[:8]:  # cap: don't fetch unbounded scripts
+    visited = set()
+    queue = []  # (bundle_url, depth)
+    for src in SCRIPT_SRC_RE.findall(html)[:8]:  # cap: don't fetch unbounded top-level scripts
         bundle_url = urljoin(url, src)
         if urlparse(bundle_url).netloc != parsed.netloc:
             continue  # same-origin only
+        queue.append((bundle_url, 0))
+
+    while queue and len(fetched_bundles) < MAX_BUNDLES:
+        bundle_url, depth = queue.pop(0)
+        if bundle_url in visited:
+            continue
+        visited.add(bundle_url)
         try:
             text = _fetch(bundle_url)
-            bundle_texts.append(text)
-            fetched_bundles.append(bundle_url)
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError):
             continue
+        bundle_texts.append(text)
+        fetched_bundles.append(bundle_url)
+
+        if depth >= MAX_IMPORT_DEPTH:
+            continue
+        for target in _extract_import_targets(text):
+            if "node_modules" in target:
+                continue  # vendor deps, not app code -- see module docstring
+            child_url = urljoin(bundle_url, target)
+            if urlparse(child_url).netloc != parsed.netloc:
+                continue  # same-origin only
+            if child_url in visited or not _is_followable(urlparse(child_url).path):
+                continue
+            queue.append((child_url, depth + 1))
 
     combined_lower = (html + "\n".join(bundle_texts)).lower()
 
