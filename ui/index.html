@@ -374,6 +374,8 @@ let liveTimerStart = null;
 const SCENARIO_DESC = {
   jailbreaking: "Assessing LLM vulnerability to adversarial jailbreaks and prompt injection intended to bypass safety guardrails.",
   sensitive_info: "Testing for unintentional disclosure of PII, credentials, or confidential context via the model's own responses.",
+  output_handling: "Checking whether the model hands back raw, unescaped payloads (script tags, SQL, shell commands) that a downstream sink could execute.",
+  unbounded_consumption: "Probing for uncapped resource use -- output-length explosion, denial-of-wallet flooding, reasoning-loop bait, and model-extraction signals.",
 };
 function scenarioDesc(tcKey, label) {
   return SCENARIO_DESC[tcKey] || `OWASP-grounded live security probe (${label}).`;
@@ -622,26 +624,33 @@ function openLiveView(tcKey) {
 function verdictClass(v) {
   if (!v) return 'na';
   if (v.startsWith('DUPLICATE_RESPONSE')) return 'dup';
-  if (v.startsWith('HELD')) return 'held';
+  if (v.startsWith('HELD') || v.startsWith('BOUNDED') || v.startsWith('CLEAN')) return 'held';
   if (v.startsWith('NOT_APPLICABLE')) return 'na';
   if (v.startsWith('ERROR') || v === 'NO_RESPONSE') return 'err';
+  if (v.startsWith('OUTPUT_UNSAFE') || v.startsWith('RESOURCE_RISK_OBSERVED')) return 'finding';
+  if (v.startsWith('PARTIAL_THROTTLING_OBSERVED')) return 'review';
   return 'review';
 }
 
 function cardBorderClass(vclass) {
   return {held: 'border-verdict-refused', review: 'border-verdict-review', dup: 'border-verdict-review',
-          err: 'border-error', na: 'border-border-subtle opacity-70'}[vclass] || 'border-border-subtle';
+          err: 'border-error', finding: 'border-error', na: 'border-border-subtle opacity-70'}[vclass] || 'border-border-subtle';
 }
 function pillClass(vclass) {
   return {held: 'bg-verdict-refused', review: 'bg-verdict-review', dup: 'bg-verdict-review',
-          err: 'bg-error', na: 'bg-outline'}[vclass] || 'bg-outline';
+          err: 'bg-error', finding: 'bg-error', na: 'bg-outline'}[vclass] || 'bg-outline';
 }
 function pillLabel(v) {
   if (!v) return 'UNTESTED';
   if (v.startsWith('DUPLICATE_RESPONSE')) return 'DUPLICATE';
   if (v.startsWith('NOT_APPLICABLE')) return 'N/A';
   if (v.startsWith('HELD')) return 'HELD';
+  if (v.startsWith('BOUNDED')) return 'BOUNDED';
+  if (v.startsWith('CLEAN')) return 'CLEAN';
   if (v.startsWith('ERROR') || v === 'NO_RESPONSE') return 'ERROR';
+  if (v.startsWith('OUTPUT_UNSAFE')) return 'UNSAFE';
+  if (v.startsWith('RESOURCE_RISK_OBSERVED')) return 'AT RISK';
+  if (v.startsWith('PARTIAL_THROTTLING_OBSERVED')) return 'PARTIAL';
   return 'NEEDS REVIEW';
 }
 function owaspShortCode(citation) {
@@ -957,7 +966,8 @@ function renderReport() {
     const label = (lastAnalysis && lastAnalysis.test_cases[tcKey] && lastAnalysis.test_cases[tcKey].label) || tcKey;
     const rows = (rowsByTc[tcKey] || []).filter(r => r.sent).map(r => {
       const vclass = verdictClass(r.verdict);
-      const borderClass = vclass === 'review' || vclass === 'dup' ? 'border-verdict-review shadow-[0_0_0_1px_rgba(217,119,6,0.2)]' : 'border-border-subtle';
+      const borderClass = vclass === 'review' || vclass === 'dup' ? 'border-verdict-review shadow-[0_0_0_1px_rgba(217,119,6,0.2)]'
+        : vclass === 'finding' ? 'border-error shadow-[0_0_0_1px_rgba(220,38,38,0.2)]' : 'border-border-subtle';
       return `<div class="bg-surface-container-lowest border ${borderClass} rounded-lg p-6 grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
         <div class="md:col-span-3">
           <div class="flex items-center justify-between mb-2">

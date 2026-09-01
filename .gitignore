@@ -11,3 +11,5 @@ Project DOCS/*
 # Real test evidence against live sites -- keep local, not published
 Jailbreaking/evidence/
 SensitiveInformation/evidence/
+OutputHandling/evidence/
+UnboundedConsumption/evidence/

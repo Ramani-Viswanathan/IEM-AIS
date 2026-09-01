@@ -64,6 +64,16 @@ TEST_CASES = {
         "skill_dir": IEM_AIS_ROOT / "SensitiveInformation" / ".claude" / "skills" / "run-sensitive-info",
         "evidence_dir": IEM_AIS_ROOT / "SensitiveInformation" / "evidence" / "adversarial",
     },
+    "output_handling": {
+        "label": "Test Case 3: Output Handling",
+        "skill_dir": IEM_AIS_ROOT / "OutputHandling" / ".claude" / "skills" / "run-output-handling",
+        "evidence_dir": IEM_AIS_ROOT / "OutputHandling" / "evidence" / "adversarial",
+    },
+    "unbounded_consumption": {
+        "label": "Test Case 4: Unbounded Consumption",
+        "skill_dir": IEM_AIS_ROOT / "UnboundedConsumption" / ".claude" / "skills" / "run-unbounded-consumption",
+        "evidence_dir": IEM_AIS_ROOT / "UnboundedConsumption" / "evidence" / "adversarial",
+    },
 }
 
 _loaded = {}
