@@ -14,8 +14,8 @@ fresh at runtime, never bundled as a static copy.
 |---|---|---|
 | LLM01:2026 Prompt Injection | `Jailbreaking/` | ✅ Built, committed, run repeatedly against a live site |
 | LLM02:2026 Sensitive Information Disclosure | `SensitiveInformation/` | ✅ Built, committed, run repeatedly against a live site |
-| LLM10:2026 Improper Output Handling | `OutputHandling/` | ✅ Built and verified against a live site — **not yet committed to git** |
-| LLM06:2026 Unbounded Consumption | `UnboundedConsumption/` | ✅ Built and verified against a live site — **not yet committed to git** |
+| LLM10:2026 Improper Output Handling | `OutputHandling/` | ✅ Built, committed, run repeatedly against a live site |
+| LLM06:2026 Unbounded Consumption | `UnboundedConsumption/` | ✅ Built, committed, run repeatedly against a live site |
 | LLM08:2026 Hidden Context Exposure | `HiddenContext/` | 📋 Planned, not started |
 | LLM03:2026 Excessive Agency | `ExcessiveAgency/` | 📋 Planned, not started |
 | LLM09:2026 Vector and Embedding Weaknesses | `VectorEmbedding/` | 📋 Planned, not started |
@@ -98,11 +98,6 @@ design it against real evidence.
   whichever test cases were run in the current browser session, but it does not yet pull
   `meaning`/`remediation` text fresh from each test case's live OWASP fetch into one authored
   document the way the full planned report does.
-
-**Not yet committed**: `OutputHandling/` and `UnboundedConsumption/` exist and have been run
-successfully against a live site, but are still untracked in git, and `ui/server.py`/
-`ui/index.html` have uncommitted local changes (the registration and UI work for those two test
-cases). They're functionally done; the commit hasn't happened yet.
 
 ### What's still planned, not started
 
@@ -257,8 +252,8 @@ per-OWASP-category build roadmap.
 ```
 Jailbreaking/            Test Case 1 (LLM01) -- built, committed
 SensitiveInformation/    Test Case 2 (LLM02) -- built, committed
-OutputHandling/          Test Case 3 (LLM10) -- built, verified, not yet committed
-UnboundedConsumption/    Test Case 4 (LLM06) -- built, verified, not yet committed
+OutputHandling/          Test Case 3 (LLM10) -- built, committed
+UnboundedConsumption/    Test Case 4 (LLM06) -- built, committed
 ui/                      shared server + frontend + shared mechanics
 Project DOCS/            design principles and build roadmap
 CLAUDE.md                contributor/agent guidance

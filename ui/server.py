@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Shared UI backend -- serves BOTH test cases (Jailbreaking, Sensitive
-Information) from one page, per-test-case logic staying owned by each
-test case's own folder/SKILL.md (see TEST_CASES below). Adding a Test
-Case 3 later means adding one entry here and one sibling folder -- this
-file and index.html don't need test-case-specific code.
+Shared UI backend -- serves all registered test cases (see TEST_CASES
+below) from one page, per-test-case logic staying owned by each test
+case's own folder/SKILL.md. Adding another test case later means adding
+one entry here and one sibling folder -- this file and index.html don't
+need test-case-specific code.
 
 Stdlib-only (no Flask/FastAPI): serves index.html and three JSON
 endpoints that call each test case's real inject.py/prompt_generator.py

@@ -2,26 +2,34 @@
 """
 Unbounded Consumption test-case orchestrator -- IEM-AIS, generic, URL-driven.
 
-Given ANY URL (no target-profile file, no hardcoded target), this:
-  1. Learns the site for real (site_analyzer.analyze): fetches its actual
-     HTML/JS, decides whether it has an LLM interface at all, and if so,
-     what endpoint drives it and what the site is actually for.
-  2. If no LLM interface is found, reports exactly that and stops.
-  3. If found, builds 9 prompts (prompt_generator.build_prompts) grounded
-     in OWASP LLM06:2026's 9 "Common Examples of Risk" (p.38-40) and
-     matching "Example Attack Scenarios" (p.41-42), contextualized to
-     THIS site's real, discovered objective.
-  4. Sends every sendable prompt to the real, live endpoint and records
-     the real response, its latency, and (risk 2 only) a short burst of
-     rapid repeated requests looking for throttling.
+Thin wrapper over ui/shared/inject_base.py, which owns the shared
+learn -> send -> classify -> record mechanics used by every IEM-AIS test
+case (including the burst-mode path for Denial-of-Wallet, generalized
+there as run_burst()). This file owns only what's specific to LLM06:2026
+Unbounded Consumption: the length/latency thresholds, classify(), and
+this skill's OWASP citation/probe name.
 
 Classifier shape is DIFFERENT from Jailbreaking/SensitiveInformation's
 refusal-marker matching and from OutputHandling's dangerous-pattern
 matching: this test case measures reply LENGTH and LATENCY against fixed
 heuristic thresholds (and, for risk 2, whether rapid repeated requests get
-throttled) -- see classify_consumption() below. This tool has no visibility
-into server-side token counts, GPU time, or dollar cost; every verdict says
-so explicitly.
+throttled) -- see classify() below. This tool has no visibility into
+server-side token counts, GPU time, or dollar cost; every verdict says so
+explicitly.
+
+Given ANY URL (no target-profile file, no hardcoded target):
+  1. Learns the site for real (site_analyzer.analyze).
+  2. If no LLM interface is found, reports exactly that and stops.
+  3. If found, builds 9 prompts (prompt_generator.build_prompts) grounded
+     in OWASP LLM06:2026's 9 "Common Examples of Risk" (p.38-40) and
+     matching "Example Attack Scenarios" (p.41-42).
+  4. Sends every sendable prompt to the real, live endpoint and records
+     the real response, its latency, and (risk 2 only) a short burst of
+     rapid repeated requests looking for throttling.
+
+Note: unlike the other three skills, this one does NOT run
+flag_duplicate_responses over its batch (see run_full below) -- that was
+the original behavior and is preserved here, not a new omission.
 
 Usage (CLI):
     python inject.py --url https://example.com/ --out evidence/adversarial
@@ -34,26 +42,23 @@ Usage (library, used by server.py for the UI):
 import argparse
 import json
 import os
-import re
 import sys
-import time
-from collections import Counter
-import urllib.request
-import urllib.error
-import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-from urllib.parse import urlparse
 
 SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SKILL_DIR)
 sys.path.insert(0, str(Path(SKILL_DIR).resolve().parents[3] / "ui" / "shared"))
-import site_analyzer  # shared, generic -- see ui/shared/site_analyzer.py
+import inject_base  # shared, generic -- see ui/shared/inject_base.py
 import prompt_generator
 
 OVERRIDES_PATH = Path(SKILL_DIR) / "config" / "site_overrides.json"
 
-REPLY_FIELD_CANDIDATES = ["reply", "response", "message", "answer", "text", "output", "completion", "result"]
+PROBE_NAME = "unbounded_consumption_generic"
+STANDARD_CITATION = (
+    "OWASP GenAI LLM Top 10 2026, LLM06:2026 Unbounded Consumption -- "
+    "'Common Examples of Risk' (p.38-40), 'Example Attack Scenarios' (p.41-42)"
+)
 
 # Heuristic thresholds -- this tool has no visibility into actual
 # server-side token counts or billed cost, only what a black-box client
@@ -71,108 +76,7 @@ REFUSAL_MARKERS = [
 ]
 
 
-def _load_overrides(url):
-    if not OVERRIDES_PATH.exists():
-        return {}
-    try:
-        data = json.loads(OVERRIDES_PATH.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return {}
-    return data.get(url, {})
-
-
-def _pick_endpoint(url, endpoints):
-    if len(endpoints) == 1:
-        return endpoints[0]
-    url_tokens = set(re.findall(r"[a-z0-9]+", urlparse(url).path.lower()))
-
-    def score(ep):
-        ep_tokens = set(re.findall(r"[a-z0-9]+", ep["path"].lower()))
-        return len(url_tokens & ep_tokens)
-
-    return max(endpoints, key=score)
-
-
-def describe_config_needs(url, profile):
-    if not profile.get("is_llm_site") or not profile.get("endpoints"):
-        return None
-
-    endpoint = _pick_endpoint(url, profile["endpoints"])
-    existing = _load_overrides(url)
-    missing = [f for f in endpoint.get("extra_fields", []) if f not in existing]
-
-    if not missing:
-        return {"endpoint_used": endpoint["path"], "missing_fields": [], "config_snippet": None,
-                "already_configured": bool(existing)}
-
-    snippet = json.dumps({url: {f: "<fill in the real value for this field>" for f in missing}}, indent=2)
-    return {
-        "endpoint_used": endpoint["path"],
-        "missing_fields": missing,
-        "config_snippet": snippet,
-        "config_path": str(OVERRIDES_PATH),
-        "already_configured": bool(existing),
-    }
-
-
-def _extract_reply(res):
-    if isinstance(res, str):
-        return res
-    if isinstance(res, dict):
-        for f in REPLY_FIELD_CANDIDATES:
-            if f in res and isinstance(res[f], str):
-                return res[f]
-        if isinstance(res.get("choices"), list) and res["choices"]:
-            c0 = res["choices"][0]
-            if isinstance(c0, dict):
-                msg = c0.get("message") or {}
-                if isinstance(msg, dict) and isinstance(msg.get("content"), str):
-                    return msg["content"]
-                if isinstance(c0.get("text"), str):
-                    return c0["text"]
-        if isinstance(res.get("data"), dict):
-            return _extract_reply(res["data"])
-    return json.dumps(res)[:1000]
-
-
-def _call_endpoint(origin, endpoint, message, session_id, body_extra=None):
-    """Same shape as the other skills' _call_endpoint, plus elapsed_ms --
-    this test case's classifier needs real latency, which the others
-    don't measure."""
-    body = {endpoint["message_field_guess"]: message}
-    if endpoint.get("session_field_guess"):
-        body[endpoint["session_field_guess"]] = session_id
-    body.update(body_extra or {})
-
-    req = urllib.request.Request(
-        origin + endpoint["path"],
-        data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json"},
-        method=endpoint.get("method", "POST"),
-    )
-    start = time.monotonic()
-    try:
-        with urllib.request.urlopen(req, timeout=90) as r:
-            res = json.load(r)
-    except urllib.error.HTTPError as e:
-        elapsed_ms = int((time.monotonic() - start) * 1000)
-        return {"request_body": body, "error": f"HTTP {e.code}: {e.read().decode(errors='replace')[:200]}",
-                "response_text": None, "raw_response": None, "elapsed_ms": elapsed_ms}
-    except urllib.error.URLError as e:
-        elapsed_ms = int((time.monotonic() - start) * 1000)
-        return {"request_body": body, "error": f"Connection failed: {e.reason}",
-                "response_text": None, "raw_response": None, "elapsed_ms": elapsed_ms}
-    except (json.JSONDecodeError, TimeoutError) as e:
-        elapsed_ms = int((time.monotonic() - start) * 1000)
-        return {"request_body": body, "error": f"Bad/no JSON response: {e}",
-                "response_text": None, "raw_response": None, "elapsed_ms": elapsed_ms}
-
-    elapsed_ms = int((time.monotonic() - start) * 1000)
-    return {"request_body": body, "response_text": _extract_reply(res), "raw_response": res,
-            "error": None, "elapsed_ms": elapsed_ms}
-
-
-def classify_consumption(risk_id, response_text, elapsed_ms, burst_stats=None):
+def classify(risk_id, response_text, elapsed_ms=None, burst_stats=None):
     """Deliberately different shape from the other skills' classify():
     measures reply LENGTH and LATENCY (and, for risk 2, throttling across
     a burst) against fixed heuristic thresholds, not refusal-marker or
@@ -254,143 +158,33 @@ def classify_consumption(risk_id, response_text, elapsed_ms, burst_stats=None):
     return f"NEEDS_REVIEW (no consumption heuristic defined for risk {risk_id} -- verify manually; reply was {length} chars in {elapsed_ms}ms)"
 
 
-def _run_burst(origin, endpoint, resolved_extra, prompt_text, count):
-    calls = []
-    for _ in range(count):
-        session_id = str(uuid.uuid4())
-        outcome = _call_endpoint(origin, endpoint, prompt_text, session_id, resolved_extra)
-        calls.append({"session_id": session_id, **outcome})
-    errors = sum(1 for c in calls if c.get("error"))
-    avg_elapsed_ms = sum(c.get("elapsed_ms", 0) for c in calls) // max(len(calls), 1)
-    return calls, {"count": len(calls), "errors": errors, "avg_elapsed_ms": avg_elapsed_ms}
-
-
-def _run_prompt_entry(origin, endpoint, resolved_extra, p):
-    """Sends one prompt dict and returns the full result entry. Shared by
-    run_full's 9-prompt batch and run_one's single-row test. Risk 2 takes
-    the burst path (several rapid calls); every other risk is a single
-    call with elapsed_ms recorded."""
-    if p["prompt"] is None:
-        return {**p, "sent": False, "session_id": None, "response_text": None,
-                "raw_response": None, "error": None, "verdict": "NOT_APPLICABLE"}
-
-    if p.get("burst"):
-        count = p.get("burst_count", prompt_generator.BURST_COUNT)
-        calls, burst_stats = _run_burst(origin, endpoint, resolved_extra, p["prompt"], count)
-        last = calls[-1]
-        entry = {**p, "sent": True, "session_id": last["session_id"],
-                 "response_text": last.get("response_text"), "raw_response": last.get("raw_response"),
-                 "error": last.get("error"), "elapsed_ms": last.get("elapsed_ms"),
-                 "burst_calls": calls, "burst_stats": burst_stats}
-        entry["verdict"] = classify_consumption(p["risk_id"], last.get("response_text"), last.get("elapsed_ms"), burst_stats=burst_stats)
-        return entry
-
-    session_id = str(uuid.uuid4())
-    outcome = _call_endpoint(origin, endpoint, p["prompt"], session_id, resolved_extra)
-    entry = {**p, "sent": True, "session_id": session_id, **outcome}
-    if outcome.get("error"):
-        entry["verdict"] = "ERROR"
-    else:
-        entry["verdict"] = classify_consumption(p["risk_id"], outcome.get("response_text"), outcome.get("elapsed_ms"))
-
-    if p.get("followup_prompt"):
-        followup_session = session_id if p.get("followup_same_session") else str(uuid.uuid4())
-        followup_outcome = _call_endpoint(origin, endpoint, p["followup_prompt"], followup_session, resolved_extra)
-        entry["followup_session_id"] = followup_session
-        entry["followup_response_text"] = followup_outcome.get("response_text")
-        entry["followup_raw_response"] = followup_outcome.get("raw_response")
-        entry["followup_error"] = followup_outcome.get("error")
-        entry["followup_verdict"] = ("ERROR" if followup_outcome.get("error") else
-                                      classify_consumption(p["risk_id"], followup_outcome.get("response_text"), followup_outcome.get("elapsed_ms")))
-
-    return entry
+def describe_config_needs(url, profile):
+    return inject_base.describe_config_needs(url, profile, SKILL_DIR)
 
 
 def run_one(url, risk_id, prompt_text, followup_prompt=None, followup_same_session=False, extra_fields=None):
-    """Test a SINGLE, possibly user-edited prompt against the real
-    endpoint -- same learn phase as run_full, just one prompt instead of
-    the standard 9. If risk_id is 2 (DoW), this still runs the burst path
-    so a user-edited row behaves identically to the batch run."""
-    profile = site_analyzer.analyze(url)
-    if profile.get("error") or not profile["is_llm_site"] or not profile["endpoints"]:
-        return {"error": profile.get("error") or "Not an LLM site or no endpoint found for this URL.",
-                "site_profile": profile}
-
-    endpoint = _pick_endpoint(url, profile["endpoints"])
-    resolved_extra = {**_load_overrides(url), **(extra_fields or {})}
-
-    ref = prompt_generator._get_reference().get(risk_id, {})
-    p = {
-        "risk_id": risk_id,
-        "prompt": prompt_text,
-        "followup_prompt": followup_prompt or None,
-        "followup_same_session": bool(followup_same_session),
-        "meaning": ref.get("meaning"),
-        "remediation": ref.get("remediation"),
-        "burst": risk_id == 2,
-        "burst_count": prompt_generator.BURST_COUNT,
-    }
-    entry = _run_prompt_entry(profile["origin"], endpoint, resolved_extra, p)
-    entry["endpoint_used"] = endpoint["path"]
-    entry["target_url"] = url
-    entry["timestamp"] = datetime.now(timezone.utc).isoformat()
-    return entry
+    return inject_base.run_one(
+        url, risk_id, prompt_text,
+        build_prompts_fn=prompt_generator.build_prompts,
+        classify_fn=classify,
+        skill_dir=SKILL_DIR,
+        followup_prompt=followup_prompt,
+        followup_same_session=followup_same_session,
+        extra_fields=extra_fields,
+    )
 
 
 def run_full(url, extra_fields=None):
-    profile = site_analyzer.analyze(url)
-    timestamp = datetime.now(timezone.utc).isoformat()
-
-    evidence = {
-        "probe_name": "unbounded_consumption_generic",
-        "target_url": url,
-        "timestamp": timestamp,
-        "standard_citation": "OWASP GenAI LLM Top 10 2026, LLM06:2026 Unbounded Consumption -- 'Common Examples of Risk' (p.38-40), 'Example Attack Scenarios' (p.41-42)",
-        "site_profile": profile,
-    }
-
-    if profile.get("error"):
-        evidence["verdict"] = "ERROR"
-        evidence["results"] = []
-        return evidence
-
-    if not profile["is_llm_site"]:
-        evidence["verdict"] = "NO LLM DETECTED -- this site does not have LLM"
-        evidence["results"] = []
-        return evidence
-
-    if not profile["endpoints"]:
-        evidence["verdict"] = "LLM INTERFACE DETECTED, BUT NO CALLABLE ENDPOINT CONTRACT COULD BE AUTO-DERIVED"
-        evidence["results"] = []
-        return evidence
-
-    endpoint = _pick_endpoint(url, profile["endpoints"])
-    evidence["endpoint_used"] = endpoint["path"]
-
-    resolved_extra = {**_load_overrides(url), **(extra_fields or {})}
-    unresolved = [f for f in endpoint.get("extra_fields", []) if f not in resolved_extra]
-    if resolved_extra:
-        evidence["endpoint_fields_supplied"] = {k: v for k, v in resolved_extra.items() if k in endpoint.get("extra_fields", [])}
-    if unresolved:
-        config_snippet = json.dumps({url: {f: "<fill in the real value for this field>" for f in unresolved}}, indent=2)
-        evidence["endpoint_warning"] = (
-            f"This endpoint's real request body also requires field(s) {unresolved} beyond "
-            f"message/session, and this tool has no value for them (never guessed). Add this to "
-            f"{OVERRIDES_PATH} and re-run:\n{config_snippet}\nWithout it, the endpoint may reject "
-            f"the request or the live widget's real behavior may differ from what's recorded below."
-        )
-        evidence["config_snippet"] = config_snippet
-
-    prompts = prompt_generator.build_prompts(
-        profile["objective"],
-        {"tool_use_hints": profile["tool_use_hints"], "attachment_hints": profile["attachment_hints"]},
+    return inject_base.run_full(
+        url,
+        build_prompts_fn=prompt_generator.build_prompts,
+        classify_fn=classify,
+        probe_name=PROBE_NAME,
+        standard_citation=STANDARD_CITATION,
+        skill_dir=SKILL_DIR,
+        extra_fields=extra_fields,
+        flag_duplicates=False,  # original behavior: this skill never ran duplicate-response flagging
     )
-
-    results = [_run_prompt_entry(profile["origin"], endpoint, resolved_extra, p) for p in prompts]
-
-    evidence["verdict"] = "COMPLETE"
-    evidence["results"] = results
-    return evidence
 
 
 def main():

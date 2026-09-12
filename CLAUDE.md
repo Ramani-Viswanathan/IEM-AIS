@@ -47,8 +47,10 @@ section for the exact recipe used when that skill was built.
   SKILL.md                    <- agent-facing docs only, no logic
   prompt_generator.py          <- builds N attack prompts for this risk category; owns its own
                                   live OWASP fetch (_get_reference()) and RISK_TO_CONTROLS mapping
-  inject.py                    <- orchestrator: learn site -> generate prompts -> send -> classify
-                                  -> record. Exposes run_full(url)/run_one(...) used by ui/server.py
+  inject.py                    <- thin wrapper over ui/shared/inject_base.py: owns only this risk
+                                  category's classify() + its refusal-marker/dangerous-pattern data
+                                  and OWASP citation/probe name. Exposes run_full(url)/run_one(...)
+                                  used by ui/server.py -- both just call inject_base's version.
   config/site_overrides.json   <- explicit, user-supplied endpoint body fields only, never guessed
 <TestCaseName>/evidence/adversarial/   <- real run output, gitignored, never committed
 ```
@@ -69,6 +71,13 @@ duplicated:
   `genai.owasp.org` at runtime (the download URL itself is discovered from the resource page's
   HTML, not hardcoded). `find_entry_section()` guards against the PDF's table of contents (which
   repeats every heading) by requiring a `confirm_near` string shortly after the real match.
+- `inject_base.py` — the learn/send/record mechanics every skill's `inject.py` used to duplicate:
+  `load_overrides`, `pick_endpoint`, `describe_config_needs`, `extract_reply`, `call_endpoint`,
+  `run_burst`, `flag_duplicate_responses`, `run_prompt_entry`, `run_one`, `run_full`. Each skill
+  passes in its own `classify_fn` (contract: `classify_fn(risk_id, response_text, elapsed_ms=None,
+  burst_stats=None)`) and `build_prompts_fn` — the classifier itself is never here (see below).
+  `run_full` takes `flag_duplicates=True` by default; UnboundedConsumption passes `False` since its
+  original `inject.py` never ran that step.
 
 **`ui/server.py`'s module-loading gotcha**: every skill has its own `inject.py` and
 `prompt_generator.py` with identical filenames but different content. A plain `import` would only
