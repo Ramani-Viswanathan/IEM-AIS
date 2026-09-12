@@ -45,9 +45,7 @@ are imported from `../../../../ui/shared/`.
 
 ## Prerequisites
 
-Python 3, stdlib, plus `pypdf` (`pip install pypdf`) -- needed only for
-the live "what it means / remediation" fetch, not for attack-sending
-itself.
+See [../../../../ui/shared/references/prerequisites.md](../../../../ui/shared/references/prerequisites.md).
 
 ## Run (agent path -- CLI, one URL, writes evidence JSON)
 
@@ -111,10 +109,8 @@ the UI behaves identically to the batch run.
 
 ## Gotchas
 
-Same table-of-contents-pollution guard, endpoint-selection scoring, and
-"extra body fields are never guessed" rules as the other three skills --
-see `Jailbreaking/.claude/skills/run-jailbreaking/SKILL.md`'s Gotchas
-section for the full detail, all of which applies identically here.
+See [../../../../ui/shared/references/gotchas.md](../../../../ui/shared/references/gotchas.md)
+for the gotchas common to every test case.
 
 **LLM06-specific:** the length/latency thresholds are fixed constants, not
 learned or calibrated per-site -- a target that's simply slow (e.g. a
@@ -127,6 +123,4 @@ than inventing one, the same pattern as Jailbreaking's risk 7.
 
 ## Troubleshooting
 
-Same table as the other three skills' SKILL.md -- endpoint/field/rate-limit
-issues are identical in shape since all four test cases share the
-learn-phase and calling machinery.
+See [../../../../ui/shared/references/troubleshooting.md](../../../../ui/shared/references/troubleshooting.md).

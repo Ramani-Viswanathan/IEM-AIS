@@ -51,10 +51,7 @@ prompts, and the risk-to-control mapping belong here.
 
 ## Prerequisites
 
-Python 3, stdlib, plus `pypdf` (`pip install pypdf`) -- needed only for the
-"what it means / remediation" reference columns, which are fetched live
-from OWASP's own site each run (see "Live OWASP reference" below), not
-bundled. Attack-sending itself needs no extra packages.
+See [../../../../ui/shared/references/prerequisites.md](../../../../ui/shared/references/prerequisites.md).
 
 ## Run (agent path -- CLI, one URL, writes evidence JSON)
 
@@ -136,14 +133,8 @@ curled directly against a running server and returned correct real data
 
 ## Per-site config for endpoints with extra required fields
 
-Some endpoints need more than a message and a session id -- e.g. an
-episode/thread identifier tied to whatever specific page you're testing.
-This tool **never guesses** those values (no field-name pattern matching,
-no inferring a value from the URL) -- every site is unique, so the value
-has to come from you.
-
-The **analyze step tells you exactly what's needed, per site**, before you
-run anything. Confirmed live this session, first with nothing configured:
+See [../../../../ui/shared/references/per-site-config.md](../../../../ui/shared/references/per-site-config.md)
+for the general rules. Confirmed live this session, first with nothing configured:
 
 ```
 $ python .claude/skills/run-jailbreaking/inject.py --url https://ramaniv.com/liftoff/episode-00-why-pm --out evidence/adversarial
@@ -176,41 +167,13 @@ $ python .claude/skills/run-jailbreaking/inject.py --url https://ramaniv.com/lif
 Real, distinct, episode-scoped responses -- not the generic-endpoint's
 canned reply, not an error.
 
-Two ways to supply values, either works:
-- **`--extra-fields '{"field": "value", ...}'`** (CLI) / the auto-generated
-  input form under "Config needed for this site" (UI) -- one-off, this run
-  only.
-- **`config/site_overrides.json`**, keyed by the *exact* URL -- persists
-  across runs. The analyze step's printed/rendered snippet is already in
-  the right shape to paste in; just replace the placeholder text with real
-  values you've confirmed yourself.
+## How the learn phase works
 
-If a field stays unresolved, the probe still runs (so you see the real
-failure mode -- an HTTP error, or a generic/deflected reply) rather than
-silently skipping the site.
-
-## How the learn phase works (no hardcoding)
-
-`site_analyzer.analyze(url)`:
-1. GETs the page's HTML with a browser `User-Agent`.
-2. Finds every same-origin `<script src=...>` bundle and GETs those too.
-3. Searches the combined text for LLM-indicative signals: vendor/SDK
-   strings (`anthropic`, `openai`, `claude`, `gemini`, ...), and
-   `fetch(...)` call sites whose path looks chat/assistant/completion-like.
-4. If found, pulls ~400 characters of source right after the `fetch(`
-   call and guesses the request's message-field and session-field names
-   from what's actually there (`message`/`prompt`/`input`/... and
-   `sessionId`/`session_id`/...) -- this is the same manual technique used
-   to reverse-engineer `ramaniv.com`'s real `/api/chat` contract last
-   session, now generalized into code. Confirmed this session: run against
-   `ramaniv.com` again, it independently re-derived the exact same
-   `message`/`sessionId` field names without them being written anywhere
-   in this codebase.
-5. Pulls the site's actual `<title>`/meta description/`<h1>` as its
-   "objective" string, used to contextualize every attack prompt.
-
-If no vendor strings and no chat-like `fetch()` are found, `is_llm_site`
-is `False` and nothing is sent -- confirmed against `example.com`.
+See [../../../../ui/shared/references/learn-phase.md](../../../../ui/shared/references/learn-phase.md).
+Confirmed live this session: run against `ramaniv.com`, it independently
+re-derived the exact same `message`/`sessionId` field names without them
+being written anywhere in this codebase; run against `example.com`,
+`is_llm_site` came back `False` and nothing was sent.
 
 ## The 8 attack prompts (Test Case 1: Jailbreaking)
 
@@ -226,96 +189,25 @@ such (a refusal there does not prove the real vector is safe). Risks #6
 and #8 are two-call attacks (plant + cross-session trigger; split-payload
 + same-session recombination).
 
-## Live OWASP reference (no bundled copy)
+## Live OWASP reference
 
-The "what it means" / remediation text shown for each risk is fetched
-live from OWASP's own site every time it's needed, not stored in this
-codebase. Split across two places:
-- `../../../../ui/shared/owasp_source.py` (shared, generic, reused by
-  every test case): fetches
-  `https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/`, finds
-  its real `/download/<id>/` link (the numeric id is NOT hardcoded,
-  discovered fresh each time -- a WordPress Download-Monitor id that can
-  change if OWASP re-uploads the file), fetches that PDF (confirmed live
-  this session: it's the same `OWASP-GenAI-LLM-Top-10-2026-v1.0.pdf`,
-  verified via its `Content-Disposition` header), extracts text with
-  `pypdf`, and provides `find_entry_section()`/`extract_numbered_section()`
-  generic primitives -- no risk-specific content lives here.
-- This folder's own `prompt_generator.py` (`_get_reference()`, near the
-  top): scopes the live text to LLM01's own section using
-  `find_entry_section()`, then parses the 8 numbered "Common Examples of
-  Risk" and 11 numbered "Prevention and Mitigation Strategies" out of it
-  using the shared primitive.
-
-Checked this session and worth knowing: `genai.owasp.org`'s per-risk
-detail pages (e.g. `.../llmrisk/llm01-prompt-injection/`) still serve the
-**2025** edition -- confirmed via that page's own `<title>` and the
-absence of any 2026-specific term ("fun-tuning", "gradient oracle", "Rule
-of Two"). Only the resource/download page has the real 2026 PDF, which is
-why this fetches the PDF itself rather than scraping a risk page.
-
-**Which control numbers address which risk (`RISK_TO_CONTROLS`, in this
-folder's own `prompt_generator.py`) is this skill's own analysis** -- the PDF doesn't
-provide that cross-reference itself, so only the meaning/control *text*
-is live; the mapping between them is curated. Risk #7 (fine-tuning
-gradient oracle) has no matching control -- said honestly, not stretched
-to fit one.
-
-If the fetch fails (no internet, OWASP site down, page structure
-changed), every risk's `meaning`/`remediation` says so plainly (`"(Live
-OWASP fetch failed: ...)"`) instead of silently falling back to stale
-text -- attack-sending still works either way, since it doesn't depend on
-this.
+See [../../../../ui/shared/references/owasp-reference.md](../../../../ui/shared/references/owasp-reference.md)
+for the general mechanism. LLM01-specific: risk #7 (fine-tuning gradient
+oracle) has no matching control in `RISK_TO_CONTROLS` -- said honestly, not
+stretched to fit one. Checked this session and worth knowing:
+`genai.owasp.org`'s per-risk detail pages (e.g.
+`.../llmrisk/llm01-prompt-injection/`) still serve the **2025** edition,
+confirmed via that page's own `<title>` and the absence of any
+2026-specific term ("fun-tuning", "gradient oracle", "Rule of Two") --
+only the resource/download page has the real 2026 PDF, which is why this
+fetches the PDF itself rather than scraping a risk page.
 
 ## Gotchas
 
-- **Verdict is a heuristic, not ground truth.** `classify()` in `inject.py`
-  only pattern-matches common refusal phrases. `HELD` means a refusal
-  marker matched; `NEEDS_REVIEW` means it didn't, which can mean
-  compliance, an unrelated reply, or a canned/rate-limit message -- always
-  read `response_text` before drawing a conclusion.
-- **A canned/rate-limited reply is now self-detected, not something you
-  have to spot manually.** `_flag_duplicate_responses()` (`inject.py`)
-  runs after every batch: if 2+ of the run's prompts got a byte-identical
-  reply, every one of them is overridden to `DUPLICATE_RESPONSE (N of
-  this run's prompts got a byte-identical reply...)` instead of a
-  misleadingly-neutral `NEEDS_REVIEW`. This is a real-time comparison of
-  THIS run's own outputs against each other -- no rate-limit field, no
-  target-specific canned-message text is assumed, so it works for any
-  site's rate-limit/canned-reply behavior, not just the one this tool
-  happened to be built against. Confirmed live this session:
-  `ramaniv.com` (still rate-limited from earlier testing) correctly
-  flagged 7 of 7 sent prompts as `DUPLICATE_RESPONSE`. Only applies to
-  the 8-prompt batch (`run_full`/`/api/test`) -- a single `run_one`/
-  `/api/test_one` call has nothing else in the same run to compare
-  against, so it still reports the plain `classify()` heuristic.
-- **`message_field_guess`/`session_field_guess` are pattern-matched against
-  the endpoint's own literal source, not fabricated** -- for a site whose
-  bundle doesn't spell field names near the `fetch(` call (e.g. they're
-  built from variables far away), the guess defaults to `message` / no
-  session field. Verify with one look at `site_profile.endpoints[N].raw_context`
-  in the evidence file if results look wrong. Anything BEYOND these two
-  fields (`extra_fields`) is never guessed at all -- see "Per-site config"
-  above.
-- **Multiple endpoints can share one JS bundle.** A site-wide `/api/chat`
-  plus a page-specific `/api/liftoff-chat` both show up in every page's
-  bundle regardless of which page you're testing. `_pick_endpoint()`
-  scores each candidate against the tested URL's own path tokens and picks
-  the best match (confirmed live this session: testing `.../liftoff`
-  correctly selects `/api/liftoff-chat`, testing `/` still selects
-  `/api/chat`) -- don't assume `endpoints[0]` is the one actually used;
-  check `evidence["endpoint_used"]`.
-- **Same-origin bundles only.** A site whose chat widget is a third-party
-  embed (loaded from a different domain, e.g. an Intercom/Drift widget)
-  won't be found by this analyzer -- it only follows `<script>` tags on
-  the same origin as the page. This is a real, current limitation, not
-  fixed this session.
+See [../../../../ui/shared/references/gotchas.md](../../../../ui/shared/references/gotchas.md)
+for the gotchas common to every test case. No additional gotcha specific
+to LLM01 beyond what's there.
 
 ## Troubleshooting
 
-| Symptom | Fix |
-|---|---|
-| `is_llm_site: false` for a site you know has a chatbot | The chat widget is likely a third-party embed (different origin) or lazy-loaded after a user action, so it never appears in the initial bundle. Not auto-detectable by this tool as built. |
-| Every row shows verdict `DUPLICATE_RESPONSE` | Self-detected canned/rate-limited replies (see Gotchas) -- space out repeated runs against the same target and re-test later. |
-| Every result is `ERROR` with an HTTP 400 mentioning a missing field | The endpoint needs config -- see "Per-site config" above; the same run's printed/rendered `config_snippet` names exactly which field(s). |
-| `server.py` won't start / port in use | Pass a different `--port`. |
+See [../../../../ui/shared/references/troubleshooting.md](../../../../ui/shared/references/troubleshooting.md).

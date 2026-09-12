@@ -86,6 +86,12 @@ duplicated:
   burst_stats=None)`) and `build_prompts_fn` — the classifier itself is never here (see below).
   `run_full` takes `flag_duplicates=True` by default; UnboundedConsumption passes `False` since its
   original `inject.py` never ran that step.
+- `references/` — SKILL.md documentation content shared across skills (learn-phase mechanics,
+  per-site config rules, the OWASP-fetch mechanism, common gotchas, common troubleshooting). Every
+  skill's `SKILL.md` links to these directly (one level deep, per [Anthropic's Skill authoring best
+  practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)) and
+  keeps only what's actually specific to its own OWASP risk category inline. When editing shared
+  mechanics, update the reference file once — don't re-describe it in a fifth `SKILL.md`.
 
 **`ui/server.py`'s module-loading gotcha**: every skill has its own `inject.py` and
 `prompt_generator.py` with identical filenames but different content. A plain `import` would only

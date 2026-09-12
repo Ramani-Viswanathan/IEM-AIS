@@ -49,9 +49,7 @@ folder.
 
 ## Prerequisites
 
-Python 3, stdlib, plus `pypdf` (`pip install pypdf`) -- needed only for
-the live "what it means / remediation" fetch, not for attack-sending
-itself.
+See [../../../../ui/shared/references/prerequisites.md](../../../../ui/shared/references/prerequisites.md).
 
 ## Run (agent path -- CLI, one URL, writes evidence JSON)
 
@@ -109,24 +107,17 @@ test either one (or one row of either) independently.
 
 ## Gotchas
 
-Same as Test Case 1's (verdict is a heuristic; `DUPLICATE_RESPONSE` is
-self-detected via cross-prompt comparison within one run; endpoint
-selection scores URL-path tokens; extra body fields are never guessed) --
-see `Jailbreaking/.claude/skills/run-jailbreaking/SKILL.md`'s Gotchas
-section, all of which apply identically here since the orchestration
-machinery is the same code shape.
+See [../../../../ui/shared/references/gotchas.md](../../../../ui/shared/references/gotchas.md)
+for the gotchas common to every test case.
 
 **LLM02-specific:** the PDF's table of contents (page 3) repeats every
 `LLM0N:2026 <Name>` heading, so a naive `full_text.find()` for
 `"LLM02:2026 Sensitive"` can land on the ToC line, not the real section
 (confirmed live this session -- it silently produced a ~50-character
 slice). `owasp_source.find_entry_section()` fixes this by only accepting
-a match followed shortly by `"Description"`. If you extend this to a new
-risk entry (LLM03+), reuse `find_entry_section()`, don't re-add a plain
-`.find()`.
+a match followed shortly by `"Description"` -- see
+[../../../../ui/shared/references/owasp-reference.md](../../../../ui/shared/references/owasp-reference.md).
 
 ## Troubleshooting
 
-Same table as Test Case 1's SKILL.md -- endpoint/field/rate-limit issues
-are identical in shape since both test cases share the learn-phase and
-calling machinery.
+See [../../../../ui/shared/references/troubleshooting.md](../../../../ui/shared/references/troubleshooting.md).

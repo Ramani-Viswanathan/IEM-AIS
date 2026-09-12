@@ -49,9 +49,7 @@ folder.
 
 ## Prerequisites
 
-Python 3, stdlib, plus `pypdf` (`pip install pypdf`) -- needed only for
-the live "what it means / remediation" fetch, not for attack-sending
-itself.
+See [../../../../ui/shared/references/prerequisites.md](../../../../ui/shared/references/prerequisites.md).
 
 ## Run (agent path -- CLI, one URL, writes evidence JSON)
 
@@ -106,30 +104,25 @@ list, not tiered like LLM02's Foundational/Hardening/Advanced -- see
 
 ## Gotchas
 
-Same as the other two skills' (verdict is a heuristic; `DUPLICATE_RESPONSE`
-is self-detected via cross-prompt comparison within one run; endpoint
-selection scores URL-path tokens; extra body fields are never guessed;
-LLM10 is the LAST numbered entry before Appendix A in the PDF, so
-`_get_reference()`'s section-end boundary is the appendix heading,
-confirmed via `"This appendix"` appearing shortly after the REAL
-occurrence -- same table-of-contents-pollution guard as the other two
-skills, just against a different end-marker) -- see
-`Jailbreaking/.claude/skills/run-jailbreaking/SKILL.md`'s Gotchas section
-for the full detail, all of which applies identically here since the
-orchestration machinery is the same code shape.
+See [../../../../ui/shared/references/gotchas.md](../../../../ui/shared/references/gotchas.md)
+for the gotchas common to every test case.
 
-**LLM10-specific:** `DANGEROUS_PATTERNS` are deliberately narrow, literal
-regexes, not fuzzy semantic matching -- each targets the specific raw
-artifact that risk's OWASP text names (a real `<script>` tag, a real
-`DROP TABLE`, a real `../../../` sequence). This means a model that
-*describes* the dangerous pattern in prose ("I could give you a command
-that deletes files, but I won't") will correctly score `CLEAN`, while one
-that actually emits the raw payload will score `OUTPUT_UNSAFE` -- that
-distinction is the point, not a bug: this test case cares about what a
-downstream sink would actually receive, not whether the topic came up.
+**LLM10-specific:** LLM10 is the LAST numbered entry before Appendix A in
+the PDF, so `_get_reference()`'s section-end boundary is the appendix
+heading, confirmed via `"This appendix"` appearing shortly after the REAL
+occurrence -- same table-of-contents-pollution guard described in
+[../../../../ui/shared/references/owasp-reference.md](../../../../ui/shared/references/owasp-reference.md),
+just against a different end-marker. Also, `DANGEROUS_PATTERNS` are
+deliberately narrow, literal regexes, not fuzzy semantic matching -- each
+targets the specific raw artifact that risk's OWASP text names (a real
+`<script>` tag, a real `DROP TABLE`, a real `../../../` sequence). This
+means a model that *describes* the dangerous pattern in prose ("I could
+give you a command that deletes files, but I won't") will correctly score
+`CLEAN`, while one that actually emits the raw payload will score
+`OUTPUT_UNSAFE` -- that distinction is the point, not a bug: this test
+case cares about what a downstream sink would actually receive, not
+whether the topic came up.
 
 ## Troubleshooting
 
-Same table as the other two skills' SKILL.md -- endpoint/field/rate-limit
-issues are identical in shape since all three test cases share the
-learn-phase and calling machinery.
+See [../../../../ui/shared/references/troubleshooting.md](../../../../ui/shared/references/troubleshooting.md).
