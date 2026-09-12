@@ -180,6 +180,11 @@ refusal marker matched — verify manually, may be compliance or an unrelated re
 a bare pass/fail — this is the honest-verdict requirement holding in practice, not just in the
 design doc.
 
+**Live example**: [Honest Verdict Report against ramaniv.com](https://claude.ai/code/artifact/846b6666-5cf0-49bb-8731-9df4b82f3d59)
+— all 5 test cases (36 risks) run against a real production site, including one live
+`OUTPUT_UNSAFE` finding. The specific prompt/response behind that finding is intentionally not
+published here; it's kept in the local, gitignored evidence file for the site owner.
+
 ## Install
 
 Only one non-stdlib dependency is needed, for the live OWASP PDF text fetch:
