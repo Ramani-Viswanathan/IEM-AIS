@@ -17,10 +17,10 @@ fresh at runtime, never bundled as a static copy.
 | LLM10:2026 Improper Output Handling | `OutputHandling/` | ✅ Built, committed, run repeatedly against a live site |
 | LLM06:2026 Unbounded Consumption | `UnboundedConsumption/` | ✅ Built, committed, run repeatedly against a live site |
 | LLM08:2026 Hidden Context Exposure | `HiddenContext/` | ✅ Built, verified against a live site (5th test case) |
+| LLM09:2026 Vector and Embedding Weaknesses | `VectorEmbedding/` | ✅ Built, negative-control + live-OWASP-fetch verified (6th test case, 2 of 7 risks permanently `NOT_APPLICABLE` by design — see below) |
 | LLM03:2026 Excessive Agency | `ExcessiveAgency/` | 📋 Planned, not started |
-| LLM09:2026 Vector and Embedding Weaknesses | `VectorEmbedding/` | 📋 Planned, not started |
 | LLM07:2026 Misinformation | `Misinformation/` | 📋 Planned, not started (partial-coverage by design — see below) |
-| pytest suite | `tests/` | ✅ Built — 37 fixture-based tests, no network |
+| pytest suite | `tests/` | ✅ Built — 50 fixture-based tests, no network |
 | Cross-test-case honest verdict report | `ui/shared/report_builder.py` (planned) | 📋 Not built. A lighter, in-browser version already exists (see below) |
 | LLM04:2026 Supply Chain | — | ❌ Out of scope for this tool, by design |
 | LLM05:2026 Data and Model Poisoning | — | ❌ Out of scope for this tool, by design |
@@ -71,9 +71,9 @@ The roadmap sorted all 10 OWASP risks into four buckets:
    training set or RAG corpus the target controls, not just their chat endpoint).
 
 Planned build order: OutputHandling → UnboundedConsumption → HiddenContext (done) →
-ExcessiveAgency / VectorEmbedding → Misinformation → register everything in `ui/server.py`'s
-`TEST_CASES` dict → build the cross-test-case honest verdict report once enough of the new test
-cases exist to design it against real evidence.
+VectorEmbedding (done) → ExcessiveAgency → Misinformation → register everything in
+`ui/server.py`'s `TEST_CASES` dict → build the cross-test-case honest verdict report once enough
+of the new test cases exist to design it against real evidence.
 
 ### What's actually been built
 
@@ -113,13 +113,21 @@ cases exist to design it against real evidence.
 - **`HiddenContext/` (LLM08)** — the 5th test case, built and verified live. All 5 risks are
   directly testable with a single chat message (unlike LLM01/LLM02, nothing here needed a
   `NOT_APPLICABLE` no-real-channel risk).
+- **`VectorEmbedding/` (LLM09)** — the 6th test case, built against the real OWASP text (p.50-54)
+  and verified with a negative control plus a live OWASP-fetch check confirming all 7 risks resolve
+  correctly. Unlike every earlier test case, 2 of its 7 OWASP risks (Embedding Inversion, Semantic
+  Cache/Dedup Poisoning) are **permanently** `NOT_APPLICABLE` — not conditional on the target site,
+  but on this tool's own architecture: both need access (raw stored vectors; the cache layer's
+  internal similarity threshold) that no chat-endpoint prompt can ever reach. The other 5 get a
+  genuine but partial one-message analogue, honestly documented per-risk in the skill's own
+  `SKILL.md` "Applicability ceiling" section. Its Retrieval Jamming risk also has an **inverted**
+  classifier within the same skill (a refusal-shaped reply means the attack succeeded, not that it
+  was held) — the first skill where the polarity flips per-risk rather than per-skill.
 
 ### What's still planned, not started
 
 - **`ExcessiveAgency/` (LLM03)** — conditional on `site_analyzer.py`'s existing `has_tools`
   detection, same conditional-risk pattern already used for a couple of LLM01/LLM02 risks.
-- **`VectorEmbedding/` (LLM09)** — conditional on a detected RAG/retrieval signal, same honest
-  analogue pattern.
 - **`Misinformation/` (LLM07)** — adversarial-prompt half only; the eval-set gap gets documented
   in that skill's own `SKILL.md`, not silently glossed over.
 - **The full cross-test-case honest verdict report** (`ui/shared/report_builder.py` or a new
@@ -130,7 +138,7 @@ cases exist to design it against real evidence.
   test date, target URL, and a standing limitations statement. Planned to be built once at least
   two of the still-unbuilt test cases exist, so it's designed against real multi-test-case
   evidence rather than a single case.
-- Registering the remaining skills in `ui/server.py`'s `TEST_CASES` dict (currently 4 of the
+- Registering the remaining skills in `ui/server.py`'s `TEST_CASES` dict (currently 6 of the
   eventual ~8 testable risk categories are registered).
 
 ### Explicitly out of scope
@@ -160,6 +168,7 @@ Development-time runs recorded locally, by test case:
 | OutputHandling | 7 | 2 |
 | UnboundedConsumption | 9 | 2 |
 | HiddenContext | 5 | 2 |
+| VectorEmbedding | 7 (2 always `NOT_APPLICABLE`) | 1 (negative control only so far) |
 
 Two kinds of targets were used during development:
 
@@ -209,12 +218,12 @@ and Reports view.
 ### Single test case from the CLI (writes evidence JSON, no UI)
 
 ```bash
-cd Jailbreaking   # or SensitiveInformation / OutputHandling / UnboundedConsumption / HiddenContext
+cd Jailbreaking   # or SensitiveInformation / OutputHandling / UnboundedConsumption / HiddenContext / VectorEmbedding
 python .claude/skills/run-<skill-name>/inject.py --url https://example.com/ --out evidence/adversarial
 ```
 
 Skill names: `run-jailbreaking`, `run-sensitive-info`, `run-output-handling`,
-`run-unbounded-consumption`, `run-hiddencontext`.
+`run-unbounded-consumption`, `run-hiddencontext`, `run-vectorembedding`.
 
 ### Test suite
 
@@ -274,6 +283,10 @@ Classifiers are deliberately different shapes per test case (not duplicated/drif
   raw content (bad outcome). Inverted from the above.
 - **UnboundedConsumption**: measures reply length and latency against fixed heuristic thresholds,
   plus a burst-request mode for Denial of Wallet. Not string matching at all.
+- **VectorEmbedding**: refusal-marker matching like the first group, except its Retrieval Jamming
+  risk flips polarity within the same skill (a refusal-shaped reply there means the attack
+  succeeded), and 2 of its 7 risks are permanently `NOT_APPLICABLE` for every target — see its
+  `SKILL.md` "Applicability ceiling" section.
 
 ## Adding a new test case
 
@@ -290,8 +303,9 @@ SensitiveInformation/    Test Case 2 (LLM02) -- built, committed
 OutputHandling/          Test Case 3 (LLM10) -- built, committed
 UnboundedConsumption/    Test Case 4 (LLM06) -- built, committed
 HiddenContext/           Test Case 5 (LLM08) -- built, committed
+VectorEmbedding/         Test Case 6 (LLM09) -- built, committed
 ui/                      shared server + frontend + shared mechanics
-tests/                   pytest suite -- 37 tests, no network
+tests/                   pytest suite -- 50 tests, no network
 Project DOCS/            design principles and build roadmap
 CLAUDE.md                contributor/agent guidance
 ```

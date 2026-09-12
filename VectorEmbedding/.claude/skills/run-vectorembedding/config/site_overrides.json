@@ -1,0 +1,3 @@
+{
+  "_comment": "Explicit, user-supplied values for endpoint body fields this tool cannot safely determine on its own (e.g. a specific episode/thread identifier a sub-page needs). Never auto-filled or guessed -- add an entry keyed by the EXACT URL you're testing, only after you've confirmed the value yourself."
+}

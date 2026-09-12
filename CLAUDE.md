@@ -29,7 +29,7 @@ python ui/server.py --port 8787
 Run a single test case from the CLI (writes evidence JSON, no UI):
 
 ```bash
-cd Jailbreaking   # or SensitiveInformation / OutputHandling / UnboundedConsumption
+cd Jailbreaking   # or SensitiveInformation / OutputHandling / UnboundedConsumption / HiddenContext / VectorEmbedding
 python .claude/skills/run-<skill-name>/inject.py --url https://example.com/ --out evidence/adversarial
 ```
 
@@ -63,10 +63,11 @@ for the exact recipe used when that skill was built.
 <TestCaseName>/evidence/adversarial/   <- real run output, gitignored, never committed
 ```
 
-Four exist today: `Jailbreaking` (LLM01), `SensitiveInformation` (LLM02), `OutputHandling`
-(LLM10), `UnboundedConsumption` (LLM06). `ui/server.py`'s `TEST_CASES` dict is the single
-registration point for adding another; `ui/index.html` needs no change to pick up a new one — it
-already loops over whatever `/api/analyze` returns.
+Six exist today: `Jailbreaking` (LLM01), `SensitiveInformation` (LLM02), `OutputHandling`
+(LLM10), `UnboundedConsumption` (LLM06), `HiddenContext` (LLM08), `VectorEmbedding` (LLM09).
+`ui/server.py`'s `TEST_CASES` dict is the single registration point for adding another;
+`ui/index.html` needs no change to pick up a new one — it already loops over whatever
+`/api/analyze` returns.
 
 **Shared, generic mechanics live in `ui/shared/`** and are imported by every skill, never
 duplicated:
@@ -103,13 +104,20 @@ each skill's internal `import prompt_generator` binds to its own sibling, not an
 **Classifiers are deliberately different shapes per test case** — this is intentional, not
 duplicated/drifted code:
 
-- `Jailbreaking` / `SensitiveInformation`: refusal-marker string matching — a match means the
-  attack was _held_ (good outcome).
+- `Jailbreaking` / `SensitiveInformation` / `HiddenContext`: refusal-marker string matching — a
+  match means the attack was _held_ (good outcome).
 - `OutputHandling`: dangerous raw-pattern matching (`<script>`, `DROP TABLE`, raw ANSI bytes) — a
   match means the model handed back unsafe raw content (bad outcome). Inverted from the above.
 - `UnboundedConsumption`: measures reply _length_ and _latency_ against fixed heuristic
   thresholds, plus a burst-request mode for the one risk (Denial of Wallet) that needs several
   rapid calls instead of one. Not string matching at all.
+- `VectorEmbedding`: refusal-marker matching like the first group, EXCEPT for its one Retrieval
+  Jamming risk, where the polarity flips within the same skill — a refusal-shaped reply there means
+  the induced "no information" attack succeeded (bad outcome), not that it was held. Two of its
+  seven OWASP risks (Embedding Inversion, Semantic Cache/Dedup Poisoning) are permanently
+  `NOT_APPLICABLE` for every target — they need access (raw stored vectors, the cache layer's
+  internal threshold) no chat-endpoint prompt can reach; see its own `SKILL.md` "Applicability
+  ceiling" section before trusting any verdict from this skill.
 
 **Honest-verdict requirement — applies to every future test case, not optional polish**: this
 tool must never emit a bare `SECURE`/`PASSED`. Every verdict states what was tested, what wasn't,

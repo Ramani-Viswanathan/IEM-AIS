@@ -79,6 +79,11 @@ TEST_CASES = {
         "skill_dir": IEM_AIS_ROOT / "HiddenContext" / ".claude" / "skills" / "run-hiddencontext",
         "evidence_dir": IEM_AIS_ROOT / "HiddenContext" / "evidence" / "adversarial",
     },
+    "vector_embedding": {
+        "label": "Test Case 6: Vector and Embedding Weaknesses",
+        "skill_dir": IEM_AIS_ROOT / "VectorEmbedding" / ".claude" / "skills" / "run-vectorembedding",
+        "evidence_dir": IEM_AIS_ROOT / "VectorEmbedding" / "evidence" / "adversarial",
+    },
 }
 
 _loaded = {}
