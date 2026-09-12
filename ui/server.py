@@ -74,6 +74,11 @@ TEST_CASES = {
         "skill_dir": IEM_AIS_ROOT / "UnboundedConsumption" / ".claude" / "skills" / "run-unbounded-consumption",
         "evidence_dir": IEM_AIS_ROOT / "UnboundedConsumption" / "evidence" / "adversarial",
     },
+    "hidden_context": {
+        "label": "Test Case 5: Hidden Context Exposure",
+        "skill_dir": IEM_AIS_ROOT / "HiddenContext" / ".claude" / "skills" / "run-hiddencontext",
+        "evidence_dir": IEM_AIS_ROOT / "HiddenContext" / "evidence" / "adversarial",
+    },
 }
 
 _loaded = {}

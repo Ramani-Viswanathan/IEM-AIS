@@ -16,10 +16,11 @@ fresh at runtime, never bundled as a static copy.
 | LLM02:2026 Sensitive Information Disclosure | `SensitiveInformation/` | ✅ Built, committed, run repeatedly against a live site |
 | LLM10:2026 Improper Output Handling | `OutputHandling/` | ✅ Built, committed, run repeatedly against a live site |
 | LLM06:2026 Unbounded Consumption | `UnboundedConsumption/` | ✅ Built, committed, run repeatedly against a live site |
-| LLM08:2026 Hidden Context Exposure | `HiddenContext/` | 📋 Planned, not started |
+| LLM08:2026 Hidden Context Exposure | `HiddenContext/` | ✅ Built, verified against a live site (5th test case) |
 | LLM03:2026 Excessive Agency | `ExcessiveAgency/` | 📋 Planned, not started |
 | LLM09:2026 Vector and Embedding Weaknesses | `VectorEmbedding/` | 📋 Planned, not started |
 | LLM07:2026 Misinformation | `Misinformation/` | 📋 Planned, not started (partial-coverage by design — see below) |
+| pytest suite | `tests/` | ✅ Built — 37 fixture-based tests, no network |
 | Cross-test-case honest verdict report | `ui/shared/report_builder.py` (planned) | 📋 Not built. A lighter, in-browser version already exists (see below) |
 | LLM04:2026 Supply Chain | — | ❌ Out of scope for this tool, by design |
 | LLM05:2026 Data and Model Poisoning | — | ❌ Out of scope for this tool, by design |
@@ -69,10 +70,10 @@ The roadmap sorted all 10 OWASP risks into four buckets:
    live-URL prompt-sending problem) and LLM05 Data and Model Poisoning (needs write access to a
    training set or RAG corpus the target controls, not just their chat endpoint).
 
-Planned build order: OutputHandling → UnboundedConsumption → HiddenContext → ExcessiveAgency /
-VectorEmbedding → Misinformation → register everything in `ui/server.py`'s `TEST_CASES` dict →
-build the cross-test-case honest verdict report once at least two of the new test cases exist to
-design it against real evidence.
+Planned build order: OutputHandling → UnboundedConsumption → HiddenContext (done) →
+ExcessiveAgency / VectorEmbedding → Misinformation → register everything in `ui/server.py`'s
+`TEST_CASES` dict → build the cross-test-case honest verdict report once enough of the new test
+cases exist to design it against real evidence.
 
 ### What's actually been built
 
@@ -98,12 +99,23 @@ design it against real evidence.
   whichever test cases were run in the current browser session, but it does not yet pull
   `meaning`/`remediation` text fresh from each test case's live OWASP fetch into one authored
   document the way the full planned report does.
+- **`ui/shared/inject_base.py`** — the learn/send/record mechanics all four skills' `inject.py`
+  used to duplicate got extracted into one shared module; each skill's `inject.py` is now a thin
+  wrapper owning only its own `classify()` and OWASP metadata.
+- **`ui/shared/references/`** — the shared *documentation* content (learn-phase mechanics,
+  per-site config rules, the OWASP-fetch mechanism, common gotchas, common troubleshooting) got the
+  same treatment: pulled into one file per topic, linked directly from every skill's `SKILL.md`
+  instead of being duplicated or pointing at a sibling skill's primary file.
+- **A pytest suite** (`tests/`) — 37 fixture-based tests, zero network calls, covering every
+  classifier's verdict shape across all built test cases plus `inject_base.py`'s orchestration
+  mechanics (including the `ERROR`/`NOT_APPLICABLE`/burst paths via monkeypatched HTTP). This was
+  the Sep 8 code review's top-priority gap (zero test files existed before it).
+- **`HiddenContext/` (LLM08)** — the 5th test case, built and verified live. All 5 risks are
+  directly testable with a single chat message (unlike LLM01/LLM02, nothing here needed a
+  `NOT_APPLICABLE` no-real-channel risk).
 
 ### What's still planned, not started
 
-- **`HiddenContext/` (LLM08)** — next in the build order. Deliberately overlaps prompts already
-  inside LLM01/LLM02 (asking for system prompt/tool schemas) but gets its own focused skill per
-  the "every scenario has its own skill" rule rather than being folded into an existing one.
 - **`ExcessiveAgency/` (LLM03)** — conditional on `site_analyzer.py`'s existing `has_tools`
   detection, same conditional-risk pattern already used for a couple of LLM01/LLM02 risks.
 - **`VectorEmbedding/` (LLM09)** — conditional on a detected RAG/retrieval signal, same honest
@@ -147,6 +159,7 @@ Development-time runs recorded locally, by test case:
 | SensitiveInformation | 7 | 9 |
 | OutputHandling | 7 | 2 |
 | UnboundedConsumption | 9 | 2 |
+| HiddenContext | 5 | 2 |
 
 Two kinds of targets were used during development:
 
@@ -191,12 +204,12 @@ and Reports view.
 ### Single test case from the CLI (writes evidence JSON, no UI)
 
 ```bash
-cd Jailbreaking   # or SensitiveInformation / OutputHandling / UnboundedConsumption
+cd Jailbreaking   # or SensitiveInformation / OutputHandling / UnboundedConsumption / HiddenContext
 python .claude/skills/run-<skill-name>/inject.py --url https://example.com/ --out evidence/adversarial
 ```
 
 Skill names: `run-jailbreaking`, `run-sensitive-info`, `run-output-handling`,
-`run-unbounded-consumption`.
+`run-unbounded-consumption`, `run-hiddencontext`.
 
 ### Test suite
 
@@ -235,14 +248,23 @@ Shared, generic mechanics live in `ui/shared/` and are imported by every skill, 
 - `owasp_source.py` — discovers and fetches the current OWASP GenAI LLM Top 10 PDF directly from
   `genai.owasp.org` at runtime (the download URL is discovered from the resource page's HTML, not
   hardcoded).
+- `inject_base.py` — the learn/send/record mechanics every skill's `inject.py` uses:
+  `load_overrides`, `pick_endpoint`, `describe_config_needs`, `extract_reply`, `call_endpoint`,
+  `run_burst`, `flag_duplicate_responses`, `run_prompt_entry`, `run_one`, `run_full`. Each skill
+  passes in its own `classify_fn` (contract: `classify_fn(risk_id, response_text, elapsed_ms=None,
+  burst_stats=None)`) and `build_prompts_fn` — the classifier itself is never here.
+- `references/` — SKILL.md documentation content shared across skills (learn-phase mechanics,
+  per-site config, the OWASP-fetch mechanism, common gotchas, common troubleshooting). Every
+  skill's `SKILL.md` links to these directly and keeps only what's specific to its own OWASP risk
+  category inline.
 
 `ui/server.py`'s `TEST_CASES` dict is the single registration point for adding another test case;
 `ui/index.html` needs no change to pick it up — it loops over whatever `/api/analyze` returns.
 
 Classifiers are deliberately different shapes per test case (not duplicated/drifted code):
 
-- **Jailbreaking / SensitiveInformation**: refusal-marker string matching — a match means the
-  attack was *held* (good outcome).
+- **Jailbreaking / SensitiveInformation / HiddenContext**: refusal-marker string matching — a
+  match means the attack was *held* (good outcome).
 - **OutputHandling**: dangerous raw-pattern matching — a match means the model handed back unsafe
   raw content (bad outcome). Inverted from the above.
 - **UnboundedConsumption**: measures reply length and latency against fixed heuristic thresholds,
@@ -262,7 +284,9 @@ Jailbreaking/            Test Case 1 (LLM01) -- built, committed
 SensitiveInformation/    Test Case 2 (LLM02) -- built, committed
 OutputHandling/          Test Case 3 (LLM10) -- built, committed
 UnboundedConsumption/    Test Case 4 (LLM06) -- built, committed
+HiddenContext/           Test Case 5 (LLM08) -- built, committed
 ui/                      shared server + frontend + shared mechanics
+tests/                   pytest suite -- 37 tests, no network
 Project DOCS/            design principles and build roadmap
 CLAUDE.md                contributor/agent guidance
 ```
