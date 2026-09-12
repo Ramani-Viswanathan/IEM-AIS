@@ -198,10 +198,18 @@ python .claude/skills/run-<skill-name>/inject.py --url https://example.com/ --ou
 Skill names: `run-jailbreaking`, `run-sensitive-info`, `run-output-handling`,
 `run-unbounded-consumption`.
 
-There is no build step (the frontend is a single static `ui/index.html`, Tailwind via CDN, no
-bundler) and no automated test suite — verification is done by running a skill live against a
-real URL and inspecting the evidence JSON / UI output. See each test case's `SKILL.md` for its
-own verification recipe.
+### Test suite
+
+```bash
+pip install pytest
+pytest
+```
+
+Fixture-based, no network — covers every classifier's verdict shapes plus `ui/shared/
+inject_base.py`'s shared orchestration mechanics. There is no build step (the frontend is a
+single static `ui/index.html`, Tailwind via CDN, no bundler). Beyond the pytest suite, live
+behavior is verified by running a skill against a real URL and inspecting the evidence JSON / UI
+output — see each test case's `SKILL.md` for its own verification recipe.
 
 ## Architecture
 

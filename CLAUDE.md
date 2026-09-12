@@ -33,10 +33,18 @@ cd Jailbreaking   # or SensitiveInformation / OutputHandling / UnboundedConsumpt
 python .claude/skills/run-<skill-name>/inject.py --url https://example.com/ --out evidence/adversarial
 ```
 
+Run the test suite (fixture-based, no network -- covers every classifier's verdict shapes plus
+`inject_base.py`'s shared orchestration mechanics):
+
+```bash
+pip install pytest
+pytest
+```
+
 There is no build step (the frontend is a single static `ui/index.html`, Tailwind via CDN, no
-bundler) and no automated test suite. Verification is done by running a skill live against a real
-URL and inspecting the evidence JSON / UI output — see each `SKILL.md`'s own "Verification"
-section for the exact recipe used when that skill was built.
+bundler). Beyond the pytest suite, live behavior is verified by running a skill against a real URL
+and inspecting the evidence JSON / UI output — see each `SKILL.md`'s own "Verification" section
+for the exact recipe used when that skill was built.
 
 ## Architecture
 
