@@ -29,7 +29,7 @@ python ui/server.py --port 8787
 Run a single test case from the CLI (writes evidence JSON, no UI):
 
 ```bash
-cd Jailbreaking   # or SensitiveInformation / OutputHandling / UnboundedConsumption / HiddenContext / VectorEmbedding
+cd Jailbreaking   # or SensitiveInformation / OutputHandling / UnboundedConsumption / HiddenContext / VectorEmbedding / ExcessiveAgency / Misinformation
 python .claude/skills/run-<skill-name>/inject.py --url https://example.com/ --out evidence/adversarial
 ```
 
@@ -63,8 +63,11 @@ for the exact recipe used when that skill was built.
 <TestCaseName>/evidence/adversarial/   <- real run output, gitignored, never committed
 ```
 
-Six exist today: `Jailbreaking` (LLM01), `SensitiveInformation` (LLM02), `OutputHandling`
-(LLM10), `UnboundedConsumption` (LLM06), `HiddenContext` (LLM08), `VectorEmbedding` (LLM09).
+Eight exist today: `Jailbreaking` (LLM01), `SensitiveInformation` (LLM02), `OutputHandling`
+(LLM10), `UnboundedConsumption` (LLM06), `HiddenContext` (LLM08), `VectorEmbedding` (LLM09),
+`ExcessiveAgency` (LLM03), `Misinformation` (LLM07). This is the full set the project scoped as
+practically testable (`Project DOCS/IEM-AIS-Practical-Build-Roadmap.md`); LLM04 Supply Chain and
+LLM05 Data and Model Poisoning are explicitly out of scope for this tool (see that roadmap).
 `ui/server.py`'s `TEST_CASES` dict is the single registration point for adding another;
 `ui/index.html` needs no change to pick up a new one — it already loops over whatever
 `/api/analyze` returns.
@@ -118,6 +121,16 @@ duplicated/drifted code:
   `NOT_APPLICABLE` for every target — they need access (raw stored vectors, the cache layer's
   internal threshold) no chat-endpoint prompt can reach; see its own `SKILL.md` "Applicability
   ceiling" section before trusting any verdict from this skill.
+- `ExcessiveAgency`: refusal/approval-seeking-marker matching like the first group. All 6 risks are
+  always sent (conditional only on `has_tools` for wording, same pattern as a few LLM01/LLM02/LLM09
+  risks) — but a compliant-sounding reply here is weaker evidence than the same verdict elsewhere:
+  it can never confirm a real backend action actually executed, only that the model's text reply
+  sounded willing. See its own `SKILL.md` "Applicability ceiling" section.
+- `Misinformation`: hedge/correction-marker matching, but only 1 of its 7 OWASP risks (Adversarially
+  Induced Misinformation) is ever sent — the other 6 all require comparing output against a curated
+  known-correct-answer eval set this tool doesn't have, and are permanently `NOT_APPLICABLE` by
+  design, not conditionally. This was the explicit "flag the ceiling honestly" plan for LLM07 from
+  `Project DOCS/IEM-AIS-Practical-Build-Roadmap.md`, not a gap discovered after the fact.
 
 **Honest-verdict requirement — applies to every future test case, not optional polish**: this
 tool must never emit a bare `SECURE`/`PASSED`. Every verdict states what was tested, what wasn't,

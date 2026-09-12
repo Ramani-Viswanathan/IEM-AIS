@@ -84,6 +84,16 @@ TEST_CASES = {
         "skill_dir": IEM_AIS_ROOT / "VectorEmbedding" / ".claude" / "skills" / "run-vectorembedding",
         "evidence_dir": IEM_AIS_ROOT / "VectorEmbedding" / "evidence" / "adversarial",
     },
+    "excessive_agency": {
+        "label": "Test Case 7: Excessive Agency",
+        "skill_dir": IEM_AIS_ROOT / "ExcessiveAgency" / ".claude" / "skills" / "run-excessiveagency",
+        "evidence_dir": IEM_AIS_ROOT / "ExcessiveAgency" / "evidence" / "adversarial",
+    },
+    "misinformation": {
+        "label": "Test Case 8: Misinformation",
+        "skill_dir": IEM_AIS_ROOT / "Misinformation" / ".claude" / "skills" / "run-misinformation",
+        "evidence_dir": IEM_AIS_ROOT / "Misinformation" / "evidence" / "adversarial",
+    },
 }
 
 _loaded = {}

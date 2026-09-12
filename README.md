@@ -18,9 +18,9 @@ fresh at runtime, never bundled as a static copy.
 | LLM06:2026 Unbounded Consumption | `UnboundedConsumption/` | ✅ Built, committed, run repeatedly against a live site |
 | LLM08:2026 Hidden Context Exposure | `HiddenContext/` | ✅ Built, verified against a live site (5th test case) |
 | LLM09:2026 Vector and Embedding Weaknesses | `VectorEmbedding/` | ✅ Built, negative-control + live-OWASP-fetch verified (6th test case, 2 of 7 risks permanently `NOT_APPLICABLE` by design — see below) |
-| LLM03:2026 Excessive Agency | `ExcessiveAgency/` | 📋 Planned, not started |
-| LLM07:2026 Misinformation | `Misinformation/` | 📋 Planned, not started (partial-coverage by design — see below) |
-| pytest suite | `tests/` | ✅ Built — 50 fixture-based tests, no network |
+| LLM03:2026 Excessive Agency | `ExcessiveAgency/` | ✅ Built, negative-control + live-OWASP-fetch verified (7th test case) |
+| LLM07:2026 Misinformation | `Misinformation/` | ✅ Built, negative-control + live-OWASP-fetch verified (8th and final test case, 6 of 7 risks permanently `NOT_APPLICABLE` by design — see below) |
+| pytest suite | `tests/` | ✅ Built — 61 fixture-based tests, no network |
 | Cross-test-case honest verdict report | `ui/shared/report_builder.py` (planned) | 📋 Not built. A lighter, in-browser version already exists (see below) |
 | LLM04:2026 Supply Chain | — | ❌ Out of scope for this tool, by design |
 | LLM05:2026 Data and Model Poisoning | — | ❌ Out of scope for this tool, by design |
@@ -71,9 +71,9 @@ The roadmap sorted all 10 OWASP risks into four buckets:
    training set or RAG corpus the target controls, not just their chat endpoint).
 
 Planned build order: OutputHandling → UnboundedConsumption → HiddenContext (done) →
-VectorEmbedding (done) → ExcessiveAgency → Misinformation → register everything in
-`ui/server.py`'s `TEST_CASES` dict → build the cross-test-case honest verdict report once enough
-of the new test cases exist to design it against real evidence.
+VectorEmbedding (done) → ExcessiveAgency (done) → Misinformation (done) → register everything in
+`ui/server.py`'s `TEST_CASES` dict (done, all 8) → build the cross-test-case honest verdict report
+now that real multi-test-case evidence exists to design it against.
 
 ### What's actually been built
 
@@ -123,13 +123,22 @@ of the new test cases exist to design it against real evidence.
   `SKILL.md` "Applicability ceiling" section. Its Retrieval Jamming risk also has an **inverted**
   classifier within the same skill (a refusal-shaped reply means the attack succeeded, not that it
   was held) — the first skill where the polarity flips per-risk rather than per-skill.
+- **`ExcessiveAgency/` (LLM03)** — the 7th test case. All 6 risks are always sent (conditional
+  only on `has_tools` for wording), each asking the model to attempt an over-scoped, over-
+  privileged, or unconfirmed high-impact action. Its own `SKILL.md` "Applicability ceiling"
+  section is explicit that a compliant-sounding reply here is weaker evidence than the same
+  verdict elsewhere: it can never confirm a real backend tool actually executed anything, only
+  that the model's text reply sounded willing.
+- **`Misinformation/` (LLM07)** — the 8th and final test case, built exactly to the plan flagged
+  back on 2026-08-22: only 1 of its 7 OWASP risks (Adversarially Induced Misinformation) is ever
+  sent. The other 6 all ask "was the model's output actually true," which needs a curated
+  known-correct-answer eval set this generic tool doesn't have and can't invent per target — they
+  resolve straight to `NOT_APPLICABLE` for every site, not conditionally. The one risk that IS
+  sent sidesteps the eval-set problem entirely: it supplies its own known-false premise and checks
+  only whether the target repeats it, needing no ground truth about the target's real domain.
 
 ### What's still planned, not started
 
-- **`ExcessiveAgency/` (LLM03)** — conditional on `site_analyzer.py`'s existing `has_tools`
-  detection, same conditional-risk pattern already used for a couple of LLM01/LLM02 risks.
-- **`Misinformation/` (LLM07)** — adversarial-prompt half only; the eval-set gap gets documented
-  in that skill's own `SKILL.md`, not silently glossed over.
 - **The full cross-test-case honest verdict report** (`ui/shared/report_builder.py` or a new
   `/api/report` endpoint — exact shape undecided) — per-risk rows pairing OWASP's live-fetched
   text with a plain-English gloss authored by the project (clearly labeled as paraphrase, never
@@ -137,9 +146,8 @@ of the new test cases exist to design it against real evidence.
   label actually means, and an overall summary stating tested scope, untested scope (and why),
   test date, target URL, and a standing limitations statement. Planned to be built once at least
   two of the still-unbuilt test cases exist, so it's designed against real multi-test-case
-  evidence rather than a single case.
-- Registering the remaining skills in `ui/server.py`'s `TEST_CASES` dict (currently 6 of the
-  eventual ~8 testable risk categories are registered).
+  evidence rather than a single case. All 8 practically-testable OWASP categories now exist, so
+  this can be designed against real multi-test-case evidence whenever it's picked up.
 
 ### Explicitly out of scope
 
@@ -168,7 +176,9 @@ Development-time runs recorded locally, by test case:
 | OutputHandling | 7 | 2 |
 | UnboundedConsumption | 9 | 2 |
 | HiddenContext | 5 | 2 |
-| VectorEmbedding | 7 (2 always `NOT_APPLICABLE`) | 1 (negative control only so far) |
+| VectorEmbedding | 7 (2 always `NOT_APPLICABLE`) | 3 |
+| ExcessiveAgency | 6 | 1 (negative control only so far) |
+| Misinformation | 7 (6 always `NOT_APPLICABLE`) | 1 (negative control only so far) |
 
 Two kinds of targets were used during development:
 
@@ -218,12 +228,13 @@ and Reports view.
 ### Single test case from the CLI (writes evidence JSON, no UI)
 
 ```bash
-cd Jailbreaking   # or SensitiveInformation / OutputHandling / UnboundedConsumption / HiddenContext / VectorEmbedding
+cd Jailbreaking   # or SensitiveInformation / OutputHandling / UnboundedConsumption / HiddenContext / VectorEmbedding / ExcessiveAgency / Misinformation
 python .claude/skills/run-<skill-name>/inject.py --url https://example.com/ --out evidence/adversarial
 ```
 
 Skill names: `run-jailbreaking`, `run-sensitive-info`, `run-output-handling`,
-`run-unbounded-consumption`, `run-hiddencontext`, `run-vectorembedding`.
+`run-unbounded-consumption`, `run-hiddencontext`, `run-vectorembedding`, `run-excessiveagency`,
+`run-misinformation`.
 
 ### Test suite
 
@@ -287,6 +298,13 @@ Classifiers are deliberately different shapes per test case (not duplicated/drif
   risk flips polarity within the same skill (a refusal-shaped reply there means the attack
   succeeded), and 2 of its 7 risks are permanently `NOT_APPLICABLE` for every target — see its
   `SKILL.md` "Applicability ceiling" section.
+- **ExcessiveAgency**: refusal/approval-seeking-marker matching. All 6 risks are always sent, but a
+  compliant-sounding reply is weaker evidence than elsewhere — it can never confirm a real backend
+  tool actually executed anything, only that the model's text sounded willing.
+- **Misinformation**: hedge/correction-marker matching, but only 1 of its 7 risks is ever sent — the
+  other 6 need a curated known-correct-answer eval set this tool doesn't have, and are permanently
+  `NOT_APPLICABLE` by design (the explicit plan for this category since 2026-08-22, not a gap found
+  after the fact).
 
 ## Adding a new test case
 
@@ -304,8 +322,10 @@ OutputHandling/          Test Case 3 (LLM10) -- built, committed
 UnboundedConsumption/    Test Case 4 (LLM06) -- built, committed
 HiddenContext/           Test Case 5 (LLM08) -- built, committed
 VectorEmbedding/         Test Case 6 (LLM09) -- built, committed
+ExcessiveAgency/         Test Case 7 (LLM03) -- built, committed
+Misinformation/          Test Case 8 (LLM07) -- built, committed
 ui/                      shared server + frontend + shared mechanics
-tests/                   pytest suite -- 50 tests, no network
+tests/                   pytest suite -- 61 tests, no network
 Project DOCS/            design principles and build roadmap
 CLAUDE.md                contributor/agent guidance
 ```
