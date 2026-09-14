@@ -20,8 +20,8 @@ fresh at runtime, never bundled as a static copy.
 | LLM09:2026 Vector and Embedding Weaknesses | `OWASP/VectorEmbedding/` | ✅ Built, negative-control + live-OWASP-fetch verified (6th test case, 2 of 7 risks permanently `NOT_APPLICABLE` by design — see below) |
 | LLM03:2026 Excessive Agency | `OWASP/ExcessiveAgency/` | ✅ Built, negative-control + live-OWASP-fetch verified (7th test case) |
 | LLM07:2026 Misinformation | `OWASP/Misinformation/` | ✅ Built, negative-control + live-OWASP-fetch verified (8th and final test case, 6 of 7 risks permanently `NOT_APPLICABLE` by design — see below) |
-| pytest suite | `tests/` | ✅ Built — 61 fixture-based tests, no network |
-| Cross-test-case honest verdict report | `ui/shared/report_builder.py` (planned) | 📋 Not built. A lighter, in-browser version already exists (see below) |
+| pytest suite | `tests/` | ✅ Built — 74 fixture-based tests, no network |
+| Cross-test-case honest verdict report | `ui/shared/report_builder.py` + `POST /api/report` | ✅ Built (Phase 1 of `Project DOCS/IEM-AIS-Platform-Evolution-Plan.md`) — reads saved evidence across sessions, not just one browser tab (see below) |
 | LLM04:2026 Supply Chain | — | ❌ Out of scope for this tool, by design |
 | LLM05:2026 Data and Model Poisoning | — | ❌ Out of scope for this tool, by design |
 
@@ -73,7 +73,8 @@ The roadmap sorted all 10 OWASP risks into four buckets:
 Planned build order: OutputHandling → UnboundedConsumption → HiddenContext (done) →
 VectorEmbedding (done) → ExcessiveAgency (done) → Misinformation (done) → register everything in
 `ui/server.py`'s `TEST_CASES` dict (done, all 8) → build the cross-test-case honest verdict report
-now that real multi-test-case evidence exists to design it against.
+(done — see `Project DOCS/IEM-AIS-Platform-Evolution-Plan.md` Phase 1) → universal chatbot reach
+and the rest of that plan's phases, ongoing.
 
 ### What's actually been built
 
@@ -136,18 +137,29 @@ now that real multi-test-case evidence exists to design it against.
   resolve straight to `NOT_APPLICABLE` for every site, not conditionally. The one risk that IS
   sent sidesteps the eval-set problem entirely: it supplies its own known-false premise and checks
   only whether the target repeats it, needing no ground truth about the target's real domain.
+- **The cross-test-case honest verdict report** (`ui/shared/report_builder.py`, `POST /api/report`,
+  `ui/shared/finding_schema.md`, `ui/shared/layman_glosses.py`) — Phase 1 of
+  `Project DOCS/IEM-AIS-Platform-Evolution-Plan.md`, built exactly to the spec in
+  `Project DOCS/IEM-AIS-Practical-Build-Roadmap.md` §4. Scans every registered test case's saved
+  evidence for the latest real run against a given URL — across sessions, not just the current
+  browser tab — and renders one document: per-risk verdicts paired with a plain-English gloss
+  authored by this project (56 of them, one per real risk across all 8 test cases, clearly labeled
+  as paraphrase, never presented as an OWASP quote) and what the verdict *family* actually means,
+  plus an explicit tested/untested-scope breakdown and the standing limitations statement. A real
+  bug caught during its own negative-control test: a batch with zero risks sent (e.g. `NO LLM
+  DETECTED`) was initially rendered as "every risk was sent" by the empty-untested-scope fallback
+  — fixed so a test case that generated no rows at all shows up as its own explicit coverage gap,
+  not as silent full coverage.
 
 ### What's still planned, not started
 
-- **The full cross-test-case honest verdict report** (`ui/shared/report_builder.py` or a new
-  `/api/report` endpoint — exact shape undecided) — per-risk rows pairing OWASP's live-fetched
-  text with a plain-English gloss authored by the project (clearly labeled as paraphrase, never
-  presented as an OWASP quote), a verdict per risk that's always paired with what the verdict
-  label actually means, and an overall summary stating tested scope, untested scope (and why),
-  test date, target URL, and a standing limitations statement. Planned to be built once at least
-  two of the still-unbuilt test cases exist, so it's designed against real multi-test-case
-  evidence rather than a single case. All 8 practically-testable OWASP categories now exist, so
-  this can be designed against real multi-test-case evidence whenever it's picked up.
+- **Phase 2 onward of `Project DOCS/IEM-AIS-Platform-Evolution-Plan.md`** — universal chatbot
+  reach (an explicit endpoint-override config, then an LLM-driven Playwright browser agent so
+  IEM-AIS can reach chatbots whose real endpoint is only resolvable by actually running their
+  JavaScript, e.g. Lakera's public Agent Breaker challenge, confirmed live as a concrete case this
+  tool can't reach yet), a SQLite evidence index, a toy `ReferenceAgent` + policy gateway, evidence
+  provenance/retention, a governance-lite control/retest layer, and an evidence export format for
+  other repos. See that doc for the full phase-by-phase plan and current priority order.
 
 ### Explicitly out of scope
 
@@ -225,6 +237,17 @@ Enter a target URL; the UI learns the site once, then lets you run any of the re
 cases against it and view results/evidence per risk, plus the in-session Honest Verdict summary
 and Reports view.
 
+### Cross-test-case honest verdict report (reads saved evidence across sessions)
+
+```bash
+curl -s -X POST http://localhost:8787/api/report -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/"}'
+```
+
+Returns `{"report": {...structured...}, "markdown": "...readable document..."}`, built from
+whichever test cases have a saved evidence file for that exact URL — including runs from earlier
+sessions, unlike the in-browser Reports view above, which only sees the current tab's memory.
+
 ### Single test case from the CLI (writes evidence JSON, no UI)
 
 ```bash
@@ -282,6 +305,13 @@ Shared, generic mechanics live in `ui/shared/` and are imported by every skill, 
   per-site config, the OWASP-fetch mechanism, common gotchas, common troubleshooting). Every
   skill's `SKILL.md` links to these directly and keeps only what's specific to its own OWASP risk
   category inline.
+- `report_builder.py` + `finding_schema.md` + `layman_glosses.py` — the cross-test-case honest
+  verdict report (`POST /api/report`). `finding_schema.md` documents the Finding shape every
+  skill's evidence JSON already produces; `layman_glosses.py` holds this project's own
+  plain-English gloss per real risk (56 of them), clearly separate from OWASP's own live-fetched
+  text; `report_builder.py` finds the latest saved evidence per test case for a given URL and
+  renders one document from it — verdict families never presented as a bare pass, an explicit
+  tested/untested-scope breakdown, and a standing limitations statement.
 
 `ui/server.py`'s `TEST_CASES` dict is the single registration point for adding another test case;
 `ui/index.html` needs no change to pick it up — it loops over whatever `/api/analyze` returns.
@@ -326,7 +356,7 @@ OWASP/
   ExcessiveAgency/         Test Case 7 (LLM03) -- built, committed
   Misinformation/          Test Case 8 (LLM07) -- built, committed
 ui/                      shared server + frontend + shared mechanics
-tests/                   pytest suite -- 61 tests, no network
+tests/                   pytest suite -- 74 tests, no network
 Project DOCS/            design principles and build roadmap
 CLAUDE.md                contributor/agent guidance
 ```

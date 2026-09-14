@@ -6,7 +6,7 @@ case's own folder/SKILL.md. Adding another test case later means adding
 one entry here and one sibling folder -- this file and index.html don't
 need test-case-specific code.
 
-Stdlib-only (no Flask/FastAPI): serves index.html and three JSON
+Stdlib-only (no Flask/FastAPI): serves index.html and four JSON
 endpoints that call each test case's real inject.py/prompt_generator.py
 directly (no subprocess, no mock).
 
@@ -20,6 +20,13 @@ directly (no subprocess, no mock).
   POST /api/test_one            -> {"url": "...", "test_case": "...",
                                      "risk_id": N, "prompt": "..."}
                                     => that test case's inject.run_one(...)
+  POST /api/report              -> {"url": "..."}
+                                    => report_builder.build_report(url, ...)
+                                    scans every registered test case's
+                                    evidence_dir for the latest saved
+                                    BATCH run against this exact URL
+                                    (across sessions, not just this
+                                    browser tab -- see report_builder.py)
 
 Usage:
     python server.py [--port 8787]
@@ -52,6 +59,7 @@ SHARED_DIR = UI_DIR / "shared"
 
 sys.path.insert(0, str(SHARED_DIR))
 import site_analyzer  # shared, generic -- identical for every test case
+import report_builder  # shared, generic -- cross-test-case honest verdict report (Phase 1)
 
 TEST_CASES = {
     "jailbreaking": {
@@ -183,6 +191,18 @@ class Handler(BaseHTTPRequestHandler):
                         )
                     result["test_cases"][tc_key] = tc_result
             self._send_json(result)
+            return
+
+        if self.path == "/api/report":
+            evidence_by_test_case = {}
+            for tc_key, tc_cfg in TEST_CASES.items():
+                evidence = report_builder.find_latest_evidence(tc_cfg["evidence_dir"], url)
+                if evidence is not None:
+                    evidence_by_test_case[tc_key] = evidence
+            labels = {k: v["label"] for k, v in TEST_CASES.items()}
+            report = report_builder.build_report(url, evidence_by_test_case, labels)
+            markdown = report_builder.render_markdown(report)
+            self._send_json({"report": report, "markdown": markdown})
             return
 
         test_case = payload.get("test_case")

@@ -96,6 +96,25 @@ duplicated:
   practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)) and
   keeps only what's actually specific to its own OWASP risk category inline. When editing shared
   mechanics, update the reference file once — don't re-describe it in a fifth `SKILL.md`.
+- `report_builder.py` + `finding_schema.md` + `layman_glosses.py` — Phase 1 of
+  `Project DOCS/IEM-AIS-Platform-Evolution-Plan.md`, the cross-test-case honest verdict report
+  (`POST /api/report` in `ui/server.py`). `find_latest_evidence()` scans a test case's
+  `evidence_dir` for the newest BATCH file (has a top-level `results` list; ignores `run_one()`'s
+  single-risk shape) matching an exact `target_url` — this spans every past session's saved
+  evidence, not just the current UI tab's in-memory `testResultsByTc` (see `ui/index.html`'s own
+  client-side Reports view, which predates this and only sees one session). `build_report()` and
+  `render_markdown()` take already-loaded evidence dicts and do no I/O, kept separate from disk
+  access for testability (`tests/test_report_builder.py` uses canned dicts and `tmp_path`, no
+  network). `verdict_family()` parses a known prefix (`HELD`, `NEEDS_REVIEW`, `NOT_APPLICABLE`,
+  `ERROR`, `DUPLICATE_RESPONSE`, etc.) out of each skill's full-sentence verdict string — this
+  parsing is a presentation/aggregation concern and deliberately lives here, not in any skill's own
+  `classify()`. `layman_glosses.py` holds one plain-English one-liner per real risk across all 8
+  test cases (56 total, cross-checked by a pytest test against each skill's own `build_prompts()`
+  risk_ids) — authored by this project, clearly separate from OWASP's own live-fetched `meaning`
+  text, same category of judgment call as each skill's own `RISK_TO_CONTROLS` mapping. A batch with
+  zero risks sent (e.g. `NO LLM DETECTED`) is recorded as its own explicit untested-scope entry,
+  not silently treated as full coverage — this was a real bug caught by the phase's own
+  negative-control test before being fixed.
 
 **`ui/server.py`'s module-loading gotcha**: every skill has its own `inject.py` and
 `prompt_generator.py` with identical filenames but different content. A plain `import` would only
