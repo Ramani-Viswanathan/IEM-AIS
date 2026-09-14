@@ -29,7 +29,7 @@ python ui/server.py --port 8787
 Run a single test case from the CLI (writes evidence JSON, no UI):
 
 ```bash
-cd Jailbreaking   # or SensitiveInformation / OutputHandling / UnboundedConsumption / HiddenContext / VectorEmbedding / ExcessiveAgency / Misinformation
+cd OWASP/Jailbreaking   # or OWASP/SensitiveInformation / OWASP/OutputHandling / OWASP/UnboundedConsumption / OWASP/HiddenContext / OWASP/VectorEmbedding / OWASP/ExcessiveAgency / OWASP/Misinformation
 python .claude/skills/run-<skill-name>/inject.py --url https://example.com/ --out evidence/adversarial
 ```
 
@@ -48,10 +48,10 @@ for the exact recipe used when that skill was built.
 
 ## Architecture
 
-**One sibling folder per OWASP risk category**, each shaped identically:
+**One sibling folder per OWASP risk category, grouped under `OWASP/`**, each shaped identically:
 
 ```
-<TestCaseName>/.claude/skills/run-<skill-name>/
+OWASP/<TestCaseName>/.claude/skills/run-<skill-name>/
   SKILL.md                    <- agent-facing docs only, no logic
   prompt_generator.py          <- builds N attack prompts for this risk category; owns its own
                                   live OWASP fetch (_get_reference()) and RISK_TO_CONTROLS mapping
@@ -60,7 +60,7 @@ for the exact recipe used when that skill was built.
                                   and OWASP citation/probe name. Exposes run_full(url)/run_one(...)
                                   used by ui/server.py -- both just call inject_base's version.
   config/site_overrides.json   <- explicit, user-supplied endpoint body fields only, never guessed
-<TestCaseName>/evidence/adversarial/   <- real run output, gitignored, never committed
+OWASP/<TestCaseName>/evidence/adversarial/   <- real run output, gitignored, never committed
 ```
 
 Eight exist today: `Jailbreaking` (LLM01), `SensitiveInformation` (LLM02), `OutputHandling`

@@ -9,11 +9,4 @@ Project DOCS/*
 !Project DOCS/IEM-AIS-UI-Redesign-Plan.md
 
 # Real test evidence against live sites -- keep local, not published
-Jailbreaking/evidence/
-SensitiveInformation/evidence/
-OutputHandling/evidence/
-UnboundedConsumption/evidence/
-HiddenContext/evidence/
-VectorEmbedding/evidence/
-ExcessiveAgency/evidence/
-Misinformation/evidence/
+OWASP/*/evidence/

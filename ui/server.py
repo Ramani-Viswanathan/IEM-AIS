@@ -56,43 +56,43 @@ import site_analyzer  # shared, generic -- identical for every test case
 TEST_CASES = {
     "jailbreaking": {
         "label": "Test Case 1: Jailbreaking",
-        "skill_dir": IEM_AIS_ROOT / "Jailbreaking" / ".claude" / "skills" / "run-jailbreaking",
-        "evidence_dir": IEM_AIS_ROOT / "Jailbreaking" / "evidence" / "adversarial",
+        "skill_dir": IEM_AIS_ROOT / "OWASP" / "Jailbreaking" / ".claude" / "skills" / "run-jailbreaking",
+        "evidence_dir": IEM_AIS_ROOT / "OWASP" / "Jailbreaking" / "evidence" / "adversarial",
     },
     "sensitive_info": {
         "label": "Test Case 2: Sensitive Information",
-        "skill_dir": IEM_AIS_ROOT / "SensitiveInformation" / ".claude" / "skills" / "run-sensitive-info",
-        "evidence_dir": IEM_AIS_ROOT / "SensitiveInformation" / "evidence" / "adversarial",
+        "skill_dir": IEM_AIS_ROOT / "OWASP" / "SensitiveInformation" / ".claude" / "skills" / "run-sensitive-info",
+        "evidence_dir": IEM_AIS_ROOT / "OWASP" / "SensitiveInformation" / "evidence" / "adversarial",
     },
     "output_handling": {
         "label": "Test Case 3: Output Handling",
-        "skill_dir": IEM_AIS_ROOT / "OutputHandling" / ".claude" / "skills" / "run-output-handling",
-        "evidence_dir": IEM_AIS_ROOT / "OutputHandling" / "evidence" / "adversarial",
+        "skill_dir": IEM_AIS_ROOT / "OWASP" / "OutputHandling" / ".claude" / "skills" / "run-output-handling",
+        "evidence_dir": IEM_AIS_ROOT / "OWASP" / "OutputHandling" / "evidence" / "adversarial",
     },
     "unbounded_consumption": {
         "label": "Test Case 4: Unbounded Consumption",
-        "skill_dir": IEM_AIS_ROOT / "UnboundedConsumption" / ".claude" / "skills" / "run-unbounded-consumption",
-        "evidence_dir": IEM_AIS_ROOT / "UnboundedConsumption" / "evidence" / "adversarial",
+        "skill_dir": IEM_AIS_ROOT / "OWASP" / "UnboundedConsumption" / ".claude" / "skills" / "run-unbounded-consumption",
+        "evidence_dir": IEM_AIS_ROOT / "OWASP" / "UnboundedConsumption" / "evidence" / "adversarial",
     },
     "hidden_context": {
         "label": "Test Case 5: Hidden Context Exposure",
-        "skill_dir": IEM_AIS_ROOT / "HiddenContext" / ".claude" / "skills" / "run-hiddencontext",
-        "evidence_dir": IEM_AIS_ROOT / "HiddenContext" / "evidence" / "adversarial",
+        "skill_dir": IEM_AIS_ROOT / "OWASP" / "HiddenContext" / ".claude" / "skills" / "run-hiddencontext",
+        "evidence_dir": IEM_AIS_ROOT / "OWASP" / "HiddenContext" / "evidence" / "adversarial",
     },
     "vector_embedding": {
         "label": "Test Case 6: Vector and Embedding Weaknesses",
-        "skill_dir": IEM_AIS_ROOT / "VectorEmbedding" / ".claude" / "skills" / "run-vectorembedding",
-        "evidence_dir": IEM_AIS_ROOT / "VectorEmbedding" / "evidence" / "adversarial",
+        "skill_dir": IEM_AIS_ROOT / "OWASP" / "VectorEmbedding" / ".claude" / "skills" / "run-vectorembedding",
+        "evidence_dir": IEM_AIS_ROOT / "OWASP" / "VectorEmbedding" / "evidence" / "adversarial",
     },
     "excessive_agency": {
         "label": "Test Case 7: Excessive Agency",
-        "skill_dir": IEM_AIS_ROOT / "ExcessiveAgency" / ".claude" / "skills" / "run-excessiveagency",
-        "evidence_dir": IEM_AIS_ROOT / "ExcessiveAgency" / "evidence" / "adversarial",
+        "skill_dir": IEM_AIS_ROOT / "OWASP" / "ExcessiveAgency" / ".claude" / "skills" / "run-excessiveagency",
+        "evidence_dir": IEM_AIS_ROOT / "OWASP" / "ExcessiveAgency" / "evidence" / "adversarial",
     },
     "misinformation": {
         "label": "Test Case 8: Misinformation",
-        "skill_dir": IEM_AIS_ROOT / "Misinformation" / ".claude" / "skills" / "run-misinformation",
-        "evidence_dir": IEM_AIS_ROOT / "Misinformation" / "evidence" / "adversarial",
+        "skill_dir": IEM_AIS_ROOT / "OWASP" / "Misinformation" / ".claude" / "skills" / "run-misinformation",
+        "evidence_dir": IEM_AIS_ROOT / "OWASP" / "Misinformation" / "evidence" / "adversarial",
     },
 }
 

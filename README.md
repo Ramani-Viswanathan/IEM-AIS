@@ -12,14 +12,14 @@ fresh at runtime, never bundled as a static copy.
 
 | OWASP risk | Test case | Status |
 |---|---|---|
-| LLM01:2026 Prompt Injection | `Jailbreaking/` | ✅ Built, committed, run repeatedly against a live site |
-| LLM02:2026 Sensitive Information Disclosure | `SensitiveInformation/` | ✅ Built, committed, run repeatedly against a live site |
-| LLM10:2026 Improper Output Handling | `OutputHandling/` | ✅ Built, committed, run repeatedly against a live site |
-| LLM06:2026 Unbounded Consumption | `UnboundedConsumption/` | ✅ Built, committed, run repeatedly against a live site |
-| LLM08:2026 Hidden Context Exposure | `HiddenContext/` | ✅ Built, verified against a live site (5th test case) |
-| LLM09:2026 Vector and Embedding Weaknesses | `VectorEmbedding/` | ✅ Built, negative-control + live-OWASP-fetch verified (6th test case, 2 of 7 risks permanently `NOT_APPLICABLE` by design — see below) |
-| LLM03:2026 Excessive Agency | `ExcessiveAgency/` | ✅ Built, negative-control + live-OWASP-fetch verified (7th test case) |
-| LLM07:2026 Misinformation | `Misinformation/` | ✅ Built, negative-control + live-OWASP-fetch verified (8th and final test case, 6 of 7 risks permanently `NOT_APPLICABLE` by design — see below) |
+| LLM01:2026 Prompt Injection | `OWASP/Jailbreaking/` | ✅ Built, committed, run repeatedly against a live site |
+| LLM02:2026 Sensitive Information Disclosure | `OWASP/SensitiveInformation/` | ✅ Built, committed, run repeatedly against a live site |
+| LLM10:2026 Improper Output Handling | `OWASP/OutputHandling/` | ✅ Built, committed, run repeatedly against a live site |
+| LLM06:2026 Unbounded Consumption | `OWASP/UnboundedConsumption/` | ✅ Built, committed, run repeatedly against a live site |
+| LLM08:2026 Hidden Context Exposure | `OWASP/HiddenContext/` | ✅ Built, verified against a live site (5th test case) |
+| LLM09:2026 Vector and Embedding Weaknesses | `OWASP/VectorEmbedding/` | ✅ Built, negative-control + live-OWASP-fetch verified (6th test case, 2 of 7 risks permanently `NOT_APPLICABLE` by design — see below) |
+| LLM03:2026 Excessive Agency | `OWASP/ExcessiveAgency/` | ✅ Built, negative-control + live-OWASP-fetch verified (7th test case) |
+| LLM07:2026 Misinformation | `OWASP/Misinformation/` | ✅ Built, negative-control + live-OWASP-fetch verified (8th and final test case, 6 of 7 risks permanently `NOT_APPLICABLE` by design — see below) |
 | pytest suite | `tests/` | ✅ Built — 61 fixture-based tests, no network |
 | Cross-test-case honest verdict report | `ui/shared/report_builder.py` (planned) | 📋 Not built. A lighter, in-browser version already exists (see below) |
 | LLM04:2026 Supply Chain | — | ❌ Out of scope for this tool, by design |
@@ -77,17 +77,17 @@ now that real multi-test-case evidence exists to design it against.
 
 ### What's actually been built
 
-- **`Jailbreaking/` (LLM01)** and **`SensitiveInformation/` (LLM02)** — built first, committed in
+- **`OWASP/Jailbreaking/` (LLM01)** and **`OWASP/SensitiveInformation/` (LLM02)** — built first, committed in
   the initial commit. Both use refusal-marker string matching: a match means the attack attempt
   was *held*.
-- **`OutputHandling/` (LLM10)** — built next, per the planned order. Its classifier is
+- **`OWASP/OutputHandling/` (LLM10)** — built next, per the planned order. Its classifier is
   deliberately inverted from the first two: it greps the raw reply for dangerous patterns
   (`<script>` tags, `DROP TABLE`, raw ANSI escape bytes) rather than refusal markers — a match
   here means *unsafe*, not *held*. Verified live: one dev run against a real site classified a
   reply `OUTPUT_UNSAFE` on a `<script[^>]*>` match, paired with the honest caveat that a match is
   "the first necessary condition, not a confirmed exploit" until someone verifies the target
   actually pipes that output into a real shell/DB/browser sink.
-- **`UnboundedConsumption/` (LLM06)** — built alongside OutputHandling. Its classifier isn't
+- **`OWASP/UnboundedConsumption/` (LLM06)** — built alongside OutputHandling. Its classifier isn't
   string matching at all: it measures reply length and latency against fixed heuristic thresholds
   (e.g. `BOUNDED` for a reply under the char-count threshold), plus a burst-request mode for the
   one risk (Denial of Wallet) that needs several rapid calls instead of one.
@@ -110,10 +110,10 @@ now that real multi-test-case evidence exists to design it against.
   classifier's verdict shape across all built test cases plus `inject_base.py`'s orchestration
   mechanics (including the `ERROR`/`NOT_APPLICABLE`/burst paths via monkeypatched HTTP). This was
   the Sep 8 code review's top-priority gap (zero test files existed before it).
-- **`HiddenContext/` (LLM08)** — the 5th test case, built and verified live. All 5 risks are
+- **`OWASP/HiddenContext/` (LLM08)** — the 5th test case, built and verified live. All 5 risks are
   directly testable with a single chat message (unlike LLM01/LLM02, nothing here needed a
   `NOT_APPLICABLE` no-real-channel risk).
-- **`VectorEmbedding/` (LLM09)** — the 6th test case, built against the real OWASP text (p.50-54)
+- **`OWASP/VectorEmbedding/` (LLM09)** — the 6th test case, built against the real OWASP text (p.50-54)
   and verified with a negative control plus a live OWASP-fetch check confirming all 7 risks resolve
   correctly. Unlike every earlier test case, 2 of its 7 OWASP risks (Embedding Inversion, Semantic
   Cache/Dedup Poisoning) are **permanently** `NOT_APPLICABLE` — not conditional on the target site,
@@ -123,13 +123,13 @@ now that real multi-test-case evidence exists to design it against.
   `SKILL.md` "Applicability ceiling" section. Its Retrieval Jamming risk also has an **inverted**
   classifier within the same skill (a refusal-shaped reply means the attack succeeded, not that it
   was held) — the first skill where the polarity flips per-risk rather than per-skill.
-- **`ExcessiveAgency/` (LLM03)** — the 7th test case. All 6 risks are always sent (conditional
+- **`OWASP/ExcessiveAgency/` (LLM03)** — the 7th test case. All 6 risks are always sent (conditional
   only on `has_tools` for wording), each asking the model to attempt an over-scoped, over-
   privileged, or unconfirmed high-impact action. Its own `SKILL.md` "Applicability ceiling"
   section is explicit that a compliant-sounding reply here is weaker evidence than the same
   verdict elsewhere: it can never confirm a real backend tool actually executed anything, only
   that the model's text reply sounded willing.
-- **`Misinformation/` (LLM07)** — the 8th and final test case, built exactly to the plan flagged
+- **`OWASP/Misinformation/` (LLM07)** — the 8th and final test case, built exactly to the plan flagged
   back on 2026-08-22: only 1 of its 7 OWASP risks (Adversarially Induced Misinformation) is ever
   sent. The other 6 all ask "was the model's output actually true," which needs a curated
   known-correct-answer eval set this generic tool doesn't have and can't invent per target — they
@@ -228,7 +228,7 @@ and Reports view.
 ### Single test case from the CLI (writes evidence JSON, no UI)
 
 ```bash
-cd Jailbreaking   # or SensitiveInformation / OutputHandling / UnboundedConsumption / HiddenContext / VectorEmbedding / ExcessiveAgency / Misinformation
+cd OWASP/Jailbreaking   # or OWASP/SensitiveInformation / OWASP/OutputHandling / OWASP/UnboundedConsumption / OWASP/HiddenContext / OWASP/VectorEmbedding / OWASP/ExcessiveAgency / OWASP/Misinformation
 python .claude/skills/run-<skill-name>/inject.py --url https://example.com/ --out evidence/adversarial
 ```
 
@@ -251,17 +251,17 @@ output — see each test case's `SKILL.md` for its own verification recipe.
 
 ## Architecture
 
-One sibling folder per OWASP risk category, each shaped identically:
+One sibling folder per OWASP risk category, grouped under `OWASP/`, each shaped identically:
 
 ```
-<TestCaseName>/.claude/skills/run-<skill-name>/
+OWASP/<TestCaseName>/.claude/skills/run-<skill-name>/
   SKILL.md                    <- agent-facing docs and spec
   prompt_generator.py          <- builds attack prompts for this risk category; owns its own
                                   live OWASP fetch and risk-to-control mapping
   inject.py                    <- orchestrator: learn site -> generate prompts -> send -> classify
                                   -> record. Exposes run_full(url)/run_one(...) used by ui/server.py
   config/site_overrides.json   <- explicit, user-supplied endpoint body fields only, never guessed
-<TestCaseName>/evidence/adversarial/   <- real run output, gitignored, never committed
+OWASP/<TestCaseName>/evidence/adversarial/   <- real run output, gitignored, never committed
 ```
 
 Shared, generic mechanics live in `ui/shared/` and are imported by every skill, never duplicated:
@@ -316,14 +316,15 @@ per-OWASP-category build roadmap.
 ## Repo layout
 
 ```
-Jailbreaking/            Test Case 1 (LLM01) -- built, committed
-SensitiveInformation/    Test Case 2 (LLM02) -- built, committed
-OutputHandling/          Test Case 3 (LLM10) -- built, committed
-UnboundedConsumption/    Test Case 4 (LLM06) -- built, committed
-HiddenContext/           Test Case 5 (LLM08) -- built, committed
-VectorEmbedding/         Test Case 6 (LLM09) -- built, committed
-ExcessiveAgency/         Test Case 7 (LLM03) -- built, committed
-Misinformation/          Test Case 8 (LLM07) -- built, committed
+OWASP/
+  Jailbreaking/            Test Case 1 (LLM01) -- built, committed
+  SensitiveInformation/    Test Case 2 (LLM02) -- built, committed
+  OutputHandling/          Test Case 3 (LLM10) -- built, committed
+  UnboundedConsumption/    Test Case 4 (LLM06) -- built, committed
+  HiddenContext/           Test Case 5 (LLM08) -- built, committed
+  VectorEmbedding/         Test Case 6 (LLM09) -- built, committed
+  ExcessiveAgency/         Test Case 7 (LLM03) -- built, committed
+  Misinformation/          Test Case 8 (LLM07) -- built, committed
 ui/                      shared server + frontend + shared mechanics
 tests/                   pytest suite -- 61 tests, no network
 Project DOCS/            design principles and build roadmap
