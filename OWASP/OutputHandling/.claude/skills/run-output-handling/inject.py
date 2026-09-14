@@ -121,6 +121,11 @@ def run_full(url, extra_fields=None):
 
 
 def main():
+    # Windows' console defaults to cp1252, which can't encode every character a real
+    # model reply or a Playwright error trace may contain (confirmed live: a browser-
+    # driven run's error text crashed this exact print loop on Windows) -- never let a
+    # display-only encoding issue lose evidence that's already been written to disk.
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", required=True)
     ap.add_argument("--out", default="evidence/adversarial")

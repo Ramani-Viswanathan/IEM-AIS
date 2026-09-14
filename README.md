@@ -20,8 +20,9 @@ fresh at runtime, never bundled as a static copy.
 | LLM09:2026 Vector and Embedding Weaknesses | `OWASP/VectorEmbedding/` | ✅ Built, negative-control + live-OWASP-fetch verified (6th test case, 2 of 7 risks permanently `NOT_APPLICABLE` by design — see below) |
 | LLM03:2026 Excessive Agency | `OWASP/ExcessiveAgency/` | ✅ Built, negative-control + live-OWASP-fetch verified (7th test case) |
 | LLM07:2026 Misinformation | `OWASP/Misinformation/` | ✅ Built, negative-control + live-OWASP-fetch verified (8th and final test case, 6 of 7 risks permanently `NOT_APPLICABLE` by design — see below) |
-| pytest suite | `tests/` | ✅ Built — 74 fixture-based tests, no network |
+| pytest suite | `tests/` | ✅ Built — 121 fixture-based tests, no network |
 | Cross-test-case honest verdict report | `ui/shared/report_builder.py` + `POST /api/report` | ✅ Built (Phase 1 of `Project DOCS/IEM-AIS-Platform-Evolution-Plan.md`) — reads saved evidence across sessions, not just one browser tab (see below) |
+| Universal chatbot reach (LLM-driven browser fallback) | `ui/shared/browser_agent.py` + `inject_base.py` | ✅ Built, unit-tested, live-verified against a real no-endpoint target (Phase 2 of `Project DOCS/IEM-AIS-Platform-Evolution-Plan.md`) — real replies obtained for 4/8 risks, residual flakiness honestly reported not hidden (see below) |
 | LLM04:2026 Supply Chain | — | ❌ Out of scope for this tool, by design |
 | LLM05:2026 Data and Model Poisoning | — | ❌ Out of scope for this tool, by design |
 
@@ -151,15 +152,51 @@ and the rest of that plan's phases, ongoing.
   — fixed so a test case that generated no rows at all shows up as its own explicit coverage gap,
   not as silent full coverage.
 
+- **Universal chatbot reach** (`ui/shared/browser_agent.py`, `inject_base.py`'s
+  `resolve_endpoint()`/`open_browser_fallback()`/`_send_via_endpoint()`) — Phase 2 of
+  `Project DOCS/IEM-AIS-Platform-Evolution-Plan.md`, built in the four steps that plan lays out:
+  (1) an `_endpoint_override` key inside `config/site_overrides.json` lets a human hand IEM-AIS a
+  full endpoint contract (path/method/field names/headers) it captured itself via DevTools, for
+  sites `site_analyzer.py`'s regex-based detection can't resolve; (2) `browser_agent.py` asks an
+  LLM which element on the actual rendered page is the chat input and how to submit, then drives
+  it via Playwright — never assuming a wire protocol underneath, so WebSocket/SSE/GraphQL/REST all
+  become invisible; (3) wired into `run_full()`/`run_one()` as an automatic fallback, only reached
+  when the fast HTTP path finds nothing, with zero changes to any skill's classifier; (4) a saved-
+  login mechanism (`python ui/shared/browser_agent.py login <url>`) for chatbots behind auth, using
+  Playwright's `storage_state()`, gitignored. Every function in `browser_agent.py` is designed to
+  need neither `playwright` nor `anthropic` installed just to import it — both are lazily imported
+  only where actually invoked — which is what let the whole module get built and unit-tested
+  end-to-end (decision-parsing, hallucinated-index rejection, every failure mode, the fallback
+  wiring, the auth-state plumbing) with zero real network/browser/LLM calls, matching the existing
+  pytest convention. The LLM call itself prefers shelling out to the `claude` CLI's `-p` mode
+  (confirmed live: authenticates through this machine's own Claude Code login, not separate
+  per-token billing) and falls back to a direct Anthropic API call only if `claude` isn't on `PATH`.
+  **Live-verified 2026-09-14** against the exact target that surfaced this gap
+  (`https://play.lakera.ai/agent-breaker/solace_profane_chat`, previously "NO CALLABLE ENDPOINT
+  CONTRACT COULD BE AUTO-DERIVED"): the browser fallback now reaches its real chat widget, which
+  turned out to need a "Chat" tab clicked before its input even exists in the DOM — an
+  `_find_reveal_candidates()` step (try each chat-labeled clickable element in turn, short
+  per-click timeout, never guesses what to *type*) was added to handle exactly that, discovered by
+  this live run itself, not anticipated in advance. Result: 4 of 8 risks got a real prompt through
+  and a real reply back, correctly classified (`HELD` ×3, `NEEDS_REVIEW` ×1); the other 3 hit an
+  honest `ERROR` from element-visibility timing flakiness on this specific dynamic page (never a
+  crash, never a fabricated reply) and 1 is `NOT_APPLICABLE` by design. This is real, non-trivial
+  evidence against a target that was completely unreachable before Phase 2 — not a clean 8-for-8,
+  and that gap is left visible rather than hidden. A live run also surfaced and fixed an unrelated,
+  pre-existing bug: every skill's CLI print loop crashed with `UnicodeEncodeError` on a native
+  Windows console when a real reply/error contained a character cp1252 can't encode (now
+  `sys.stdout.reconfigure(encoding="utf-8", errors="replace")` in every skill's `main()` — display
+  only, the saved evidence JSON was always correctly UTF-8).
+
 ### What's still planned, not started
 
-- **Phase 2 onward of `Project DOCS/IEM-AIS-Platform-Evolution-Plan.md`** — universal chatbot
-  reach (an explicit endpoint-override config, then an LLM-driven Playwright browser agent so
-  IEM-AIS can reach chatbots whose real endpoint is only resolvable by actually running their
-  JavaScript, e.g. Lakera's public Agent Breaker challenge, confirmed live as a concrete case this
-  tool can't reach yet), a SQLite evidence index, a toy `ReferenceAgent` + policy gateway, evidence
-  provenance/retention, a governance-lite control/retest layer, and an evidence export format for
-  other repos. See that doc for the full phase-by-phase plan and current priority order.
+- **Phase 2 hardening** (the residual element-visibility flakiness above, and the reply-capture
+  heuristic currently picking up surrounding page chrome alongside the bot's actual reply text on
+  some layouts) plus **Phase 3 onward of
+  `Project DOCS/IEM-AIS-Platform-Evolution-Plan.md`** — a SQLite evidence index, a toy
+  `ReferenceAgent` + policy gateway, evidence provenance/retention, a governance-lite
+  control/retest layer, and an evidence export format for other repos. See that doc for the full
+  phase-by-phase plan and current priority order.
 
 ### Explicitly out of scope
 
@@ -218,10 +255,46 @@ published here; it's kept in the local, gitignored evidence file for the site ow
 
 ## Install
 
-Only one non-stdlib dependency is needed, for the live OWASP PDF text fetch:
+Only one non-stdlib dependency is needed for the core tool, for the live OWASP PDF text fetch:
 
 ```bash
 pip install pypdf
+```
+
+### Optional: universal chatbot reach (Phase 2, `browser_agent.py`)
+
+Not required for anything above. Only needed when a target's real chat request can't be resolved
+by `site_analyzer.py`'s static detection (confirmed live against Lakera's Agent Breaker: a
+runtime-built `fetch()` URL, WebSocket streaming, or a session-token-gated call) and no
+`_endpoint_override` has been configured either.
+
+```bash
+pip install playwright
+playwright install chromium
+```
+
+The LLM call this module makes (deciding which page element is the chat input) prefers shelling
+out to the **`claude` CLI's non-interactive `-p` mode** if it's on `PATH` — confirmed live
+(2026-09-14) to authenticate through whatever this machine's own Claude Code login already is (a
+Pro/Max subscription's own usage allowance, not separate per-token API billing): a real `claude -p`
+call succeeded on this project's own dev machine at the exact moment its `ANTHROPIC_API_KEY` had a
+zero credit balance and was rejecting direct API calls outright. If you already have Claude Code
+installed and logged in, **there's nothing else to set up** — no extra package, no separate key, no
+new billing.
+
+Only if `claude` isn't on `PATH` does it fall back to a direct Anthropic API call, which needs its
+own dependency and key (real per-run cost):
+
+```bash
+pip install anthropic
+export ANTHROPIC_API_KEY=...
+```
+
+For a chatbot behind a login, save a session once by hand, reused by every later automated run
+against that origin:
+
+```bash
+python ui/shared/browser_agent.py login https://example.com/chat
 ```
 
 ## Run
@@ -297,10 +370,17 @@ Shared, generic mechanics live in `ui/shared/` and are imported by every skill, 
   `genai.owasp.org` at runtime (the download URL is discovered from the resource page's HTML, not
   hardcoded).
 - `inject_base.py` — the learn/send/record mechanics every skill's `inject.py` uses:
-  `load_overrides`, `pick_endpoint`, `describe_config_needs`, `extract_reply`, `call_endpoint`,
-  `run_burst`, `flag_duplicate_responses`, `run_prompt_entry`, `run_one`, `run_full`. Each skill
-  passes in its own `classify_fn` (contract: `classify_fn(risk_id, response_text, elapsed_ms=None,
-  burst_stats=None)`) and `build_prompts_fn` — the classifier itself is never here.
+  `load_overrides`, `extra_fields_from_overrides`, `pick_endpoint`, `resolve_endpoint`,
+  `describe_config_needs`, `extract_reply`, `call_endpoint`, `_send_via_endpoint`,
+  `open_browser_fallback`, `run_burst`, `flag_duplicate_responses`, `run_prompt_entry`, `run_one`,
+  `run_full`. Each skill passes in its own `classify_fn` (contract: `classify_fn(risk_id,
+  response_text, elapsed_ms=None, burst_stats=None)`) and `build_prompts_fn` — the classifier
+  itself is never here. `resolve_endpoint()` prefers a human-confirmed `_endpoint_override`
+  (site_overrides.json) over the auto-guessed endpoint list; when neither exists, `run_full()`/
+  `run_one()` try `open_browser_fallback()` (Phase 2) before giving up, which is a no-op returning
+  `None` unless `playwright` is installed, so a normal HTTP-only run is completely unaffected.
+- `browser_agent.py` — LLM-driven Playwright browser interaction (Phase 2), used only as a
+  fallback when the above can't find a usable endpoint. See "Universal chatbot reach" above.
 - `references/` — SKILL.md documentation content shared across skills (learn-phase mechanics,
   per-site config, the OWASP-fetch mechanism, common gotchas, common troubleshooting). Every
   skill's `SKILL.md` links to these directly and keeps only what's specific to its own OWASP risk
@@ -356,7 +436,7 @@ OWASP/
   ExcessiveAgency/         Test Case 7 (LLM03) -- built, committed
   Misinformation/          Test Case 8 (LLM07) -- built, committed
 ui/                      shared server + frontend + shared mechanics
-tests/                   pytest suite -- 74 tests, no network
+tests/                   pytest suite -- 121 tests, no network
 Project DOCS/            design principles and build roadmap
 CLAUDE.md                contributor/agent guidance
 ```

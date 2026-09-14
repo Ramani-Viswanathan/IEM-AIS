@@ -294,10 +294,31 @@
       <div id="reportContent" class="hidden-view">
         <div class="flex justify-between items-start mb-4">
           <h1 class="font-display-lg text-display-lg text-primary">IEM-AIS Security Audit: Honest Verdict Report</h1>
-          <button id="exportPdfBtn" onclick="window.print()"
-            class="flex-shrink-0 bg-primary text-on-primary font-label-caps text-label-caps px-4 py-2 rounded flex items-center gap-2 hover:bg-opacity-90">
-            <span class="material-symbols-outlined text-sm">picture_as_pdf</span> Export to PDF
-          </button>
+          <div class="flex gap-2 flex-shrink-0">
+            <button id="crossSessionBtn" onclick="loadCrossSessionReport()"
+              title="Aggregates the latest saved evidence for this URL across EVERY past session/run, not just what this browser tab has in memory -- see Project DOCS/IEM-AIS-Platform-Evolution-Plan.md Phase 1."
+              class="bg-surface-container-highest text-on-surface font-label-caps text-label-caps px-4 py-2 rounded flex items-center gap-2 border border-border-subtle hover:bg-surface-container-high">
+              <span class="material-symbols-outlined text-sm">history</span> Load Full History (all sessions)
+            </button>
+            <button id="exportPdfBtn" onclick="window.print()"
+              class="bg-primary text-on-primary font-label-caps text-label-caps px-4 py-2 rounded flex items-center gap-2 hover:bg-opacity-90">
+              <span class="material-symbols-outlined text-sm">picture_as_pdf</span> Export to PDF
+            </button>
+          </div>
+        </div>
+        <div id="crossSessionBox" class="hidden-view mb-section-gap bg-surface-container-lowest border border-border-subtle rounded-lg p-8">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="font-headline-md text-headline-md text-primary flex items-center gap-2">
+              <span class="material-symbols-outlined text-text-muted">history</span> Cross-Session Honest Verdict Report
+            </h2>
+            <button onclick="document.getElementById('crossSessionBox').classList.add('hidden-view')"
+              class="font-label-caps text-label-caps text-text-muted hover:text-on-surface">Close</button>
+          </div>
+          <p class="font-body-sm text-body-sm text-text-muted mb-4">
+            Pulled live from <code class="font-code-snippet text-code-snippet">POST /api/report</code> -- scans every
+            registered test case's saved evidence on disk for this exact URL, across every past run, not just this tab.
+          </p>
+          <div id="crossSessionMd" class="font-body-sm text-body-sm text-on-surface prose-report max-w-none"></div>
         </div>
         <header class="mb-section-gap border-b border-border-subtle pb-8">
           <div class="grid grid-cols-1 md:grid-cols-4 gap-6 bg-surface-container-low p-6 rounded-lg border border-border-subtle">
@@ -1004,6 +1025,58 @@ function renderReport() {
   document.getElementById('reportUntested').innerHTML = untestedCards.length
     ? untestedCards.join('')
     : '<p class="font-body-sm text-body-sm text-text-muted col-span-full">Every risk row across the test cases run this session was sent.</p>';
+}
+
+// ============================================================================
+// Cross-session report -- Phase 1 of Project DOCS/IEM-AIS-Platform-Evolution-Plan.md.
+// Unlike renderReport() above (client-side only, this tab's memory), this
+// calls the real backend /api/report, which scans every registered test
+// case's evidence_dir on disk for the latest saved run against this exact
+// URL -- spans every past session, not just this one. Deliberately a
+// SEPARATE panel rather than replacing renderReport(): the two answer
+// different questions ("what did I just do in this tab" vs "what's the
+// most current known state of this target, ever").
+// ============================================================================
+function mdToHtmlBasic(md) {
+  // Minimal, deliberately non-clever markdown->HTML for report_builder.py's
+  // own output shape only (#/##/###/**bold**/- bullets/plain paragraphs) --
+  // not a general markdown renderer.
+  const lines = md.split('\n');
+  let html = '', inList = false;
+  const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+  const inline = s => esc2(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`(.+?)`/g, '<code class="font-code-snippet text-code-snippet bg-surface-container-highest px-1 rounded">$1</code>');
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (line.startsWith('### ')) { closeList(); html += `<h4 class="font-headline-sm text-headline-sm text-primary mt-6 mb-2">${inline(line.slice(4))}</h4>`; }
+    else if (line.startsWith('## ')) { closeList(); html += `<h3 class="font-headline-md text-headline-md text-primary mt-8 mb-3 border-b border-border-subtle pb-2">${inline(line.slice(3))}</h3>`; }
+    else if (line.startsWith('# ')) { closeList(); html += `<h2 class="font-display-lg text-display-lg text-primary mb-4">${inline(line.slice(2))}</h2>`; }
+    else if (line.startsWith('- ')) { if (!inList) { html += '<ul class="list-disc pl-6 space-y-1">'; inList = true; } html += `<li>${inline(line.slice(2))}</li>`; }
+    else if (line.trim() === '') { closeList(); }
+    else { closeList(); html += `<p class="mb-3 leading-relaxed">${inline(line)}</p>`; }
+  }
+  closeList();
+  return html;
+}
+
+async function loadCrossSessionReport() {
+  const url = (document.getElementById('url').value || '').trim();
+  const box = document.getElementById('crossSessionBox');
+  const target = document.getElementById('crossSessionMd');
+  if (!url) { alert('Enter a target URL on the Dashboard first.'); return; }
+  box.classList.remove('hidden-view');
+  target.innerHTML = '<p class="font-body-sm text-body-sm text-text-muted">Loading...</p>';
+  try {
+    const resp = await fetch('/api/report', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const data = await resp.json();
+    if (data.error) { target.innerHTML = `<p class="text-error">${esc2(data.error)}</p>`; return; }
+    target.innerHTML = mdToHtmlBasic(data.markdown || '(empty report)');
+  } catch (e) {
+    target.innerHTML = `<p class="text-error">Failed to reach /api/report: ${esc2(String(e))}</p>`;
+  }
 }
 </script>
 

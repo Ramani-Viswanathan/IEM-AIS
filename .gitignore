@@ -10,3 +10,8 @@ Project DOCS/*
 
 # Real test evidence against live sites -- keep local, not published
 OWASP/*/evidence/
+
+# Phase 2 (Project DOCS/IEM-AIS-Platform-Evolution-Plan.md): saved
+# Playwright login sessions (cookies/local storage) for chatbots behind
+# auth -- sensitive, machine-local, never committed.
+.browser_auth_state/

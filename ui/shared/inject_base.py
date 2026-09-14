@@ -36,6 +36,17 @@ import site_analyzer  # shared, generic -- sibling module in ui/shared/
 REPLY_FIELD_CANDIDATES = ["reply", "response", "message", "answer", "text", "output", "completion", "result"]
 DEFAULT_TIMEOUT = 60
 
+# Reserved key inside a URL's site_overrides.json entry: a human-confirmed,
+# full endpoint contract (path/method/field names/headers) to use INSTEAD OF
+# site_analyzer.py's auto-guessed endpoint list. Exists for real targets
+# (confirmed live against Lakera's Agent Breaker) where the chat request URL
+# is only resolved once the page's own JS runs (a bundled variable, not a
+# literal fetch() string) -- no static regex can ever recover that. Kept
+# separate from the flat body-extra-field keys already in this same dict so
+# the two mechanisms (endpoint override vs. extra body fields) can combine
+# freely -- see Project DOCS/IEM-AIS-Platform-Evolution-Plan.md Phase 2 step 1.
+ENDPOINT_OVERRIDE_KEY = "_endpoint_override"
+
 
 def _overrides_path(skill_dir):
     return Path(skill_dir) / "config" / "site_overrides.json"
@@ -43,7 +54,10 @@ def _overrides_path(skill_dir):
 
 def load_overrides(url, skill_dir):
     """Explicit, user-supplied field values ONLY. Nothing here is guessed
-    or derived; an absent/unmatched entry just means no override exists."""
+    or derived; an absent/unmatched entry just means no override exists.
+    May include the reserved ENDPOINT_OVERRIDE_KEY alongside plain body
+    fields -- callers that only want body fields use
+    extra_fields_from_overrides() below."""
     path = _overrides_path(skill_dir)
     if not path.exists():
         return {}
@@ -52,6 +66,13 @@ def load_overrides(url, skill_dir):
     except json.JSONDecodeError:
         return {}
     return data.get(url, {})
+
+
+def extra_fields_from_overrides(overrides):
+    """The plain body-extra-field values out of a load_overrides() dict --
+    strips the reserved endpoint-override key, which is config for HOW to
+    reach the endpoint, not a value to stuff into the request body."""
+    return {k: v for k, v in overrides.items() if k != ENDPOINT_OVERRIDE_KEY}
 
 
 def pick_endpoint(url, endpoints):
@@ -71,14 +92,41 @@ def pick_endpoint(url, endpoints):
     return max(endpoints, key=score)
 
 
+def resolve_endpoint(url, profile, skill_dir):
+    """The endpoint to actually call for this run: an explicit, human-
+    confirmed override (site_overrides.json's ENDPOINT_OVERRIDE_KEY) if one
+    exists for this URL, otherwise site_analyzer.py's auto-guessed
+    pick_endpoint() result. An override is honored even when
+    profile["endpoints"] is empty -- that emptiness is exactly the gap this
+    mechanism exists to cover. Returns None when neither source has
+    anything to offer, same contract pick_endpoint() already had."""
+    overrides = load_overrides(url, skill_dir)
+    override = overrides.get(ENDPOINT_OVERRIDE_KEY)
+    if override:
+        return {
+            "path": override["path"],
+            "method": override.get("method", "POST"),
+            "message_field_guess": override.get("message_field_guess", "message"),
+            "session_field_guess": override.get("session_field_guess"),
+            "extra_fields": [],  # already-resolved via this same overrides dict's body fields
+            "headers": override.get("headers") or {},
+        }
+    endpoint = pick_endpoint(url, profile.get("endpoints") or [])
+    if endpoint is not None and "headers" not in endpoint:
+        endpoint = {**endpoint, "headers": {}}
+    return endpoint
+
+
 def describe_config_needs(url, profile, skill_dir):
     """What's missing before results for THIS site are trustworthy --
     computed fresh per site, never templated from another target."""
-    if not profile.get("is_llm_site") or not profile.get("endpoints"):
+    if not profile.get("is_llm_site"):
+        return None
+    endpoint = resolve_endpoint(url, profile, skill_dir)
+    if endpoint is None:
         return None
 
-    endpoint = pick_endpoint(url, profile["endpoints"])
-    existing = load_overrides(url, skill_dir)
+    existing = extra_fields_from_overrides(load_overrides(url, skill_dir))
     missing = [f for f in endpoint.get("extra_fields", []) if f not in existing]
 
     if not missing:
@@ -122,16 +170,26 @@ def call_endpoint(origin, endpoint, message, session_id, body_extra=None, timeou
     back in `error` so the caller can record an ERROR verdict instead of
     crashing the whole batch run. Always includes elapsed_ms; skills that
     don't need it (Jailbreaking/SensitiveInformation/OutputHandling)
-    simply ignore that key."""
+    simply ignore that key.
+
+    endpoint["path"] may be a full absolute URL (an explicit endpoint
+    override can point at a different host than the page itself, e.g. a
+    separate api.* origin) -- otherwise it's joined onto `origin` as
+    before. endpoint["headers"], if present (only ever human-supplied via
+    an override -- see ENDPOINT_OVERRIDE_KEY), is merged in alongside the
+    default Content-Type, e.g. for a session-token-gated endpoint's
+    Authorization header."""
     body = {endpoint["message_field_guess"]: message}
     if endpoint.get("session_field_guess"):
         body[endpoint["session_field_guess"]] = session_id
     body.update(body_extra or {})  # ONLY explicit, user-supplied values -- never guessed
 
+    target = endpoint["path"] if endpoint["path"].startswith(("http://", "https://")) else origin + endpoint["path"]
+    headers = {"Content-Type": "application/json", **(endpoint.get("headers") or {})}
     req = urllib.request.Request(
-        origin + endpoint["path"],
+        target,
         data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json"},
+        headers=headers,
         method=endpoint.get("method", "POST"),
     )
     start = time.monotonic()
@@ -156,15 +214,76 @@ def call_endpoint(origin, endpoint, message, session_id, body_extra=None, timeou
             "error": None, "elapsed_ms": _elapsed()}
 
 
+def _send_via_endpoint(origin, endpoint, message, session_id, body_extra=None, timeout=DEFAULT_TIMEOUT):
+    """Dispatches to the real HTTP call_endpoint(), or -- when `endpoint`
+    carries mode="browser" (site_analyzer.py found no usable endpoint and
+    no override exists; see open_browser_fallback() and run_full() below)
+    -- to browser_agent.send_prompt_via_browser() instead. Both return the
+    exact same shape (response_text/raw_response/error/elapsed_ms), so
+    every caller downstream (run_prompt_entry, run_burst, every skill's
+    classify()) needs ZERO changes to work with either path. `browser_agent`
+    is imported lazily here, not at module load, so a normal HTTP-only run
+    never needs playwright installed at all."""
+    if endpoint.get("mode") == "browser":
+        import browser_agent
+        return browser_agent.send_prompt_via_browser(endpoint["page"], message, llm_call=endpoint.get("llm_call"))
+    return call_endpoint(origin, endpoint, message, session_id, body_extra, timeout)
+
+
+def open_browser_fallback(url):
+    """Launches a real, headless Playwright Chromium browser, navigates to
+    url, and returns {"page": page, "close": fn} -- or None if playwright
+    isn't installed, or the page couldn't be reached at all, so run_full()
+    can fall through to the existing honest "no callable endpoint" verdict
+    rather than crashing. This is the ONLY place in inject_base.py that
+    ever imports playwright, and only when the fast HTTP path has already
+    failed to find an endpoint (see run_full()) -- see
+    Project DOCS/IEM-AIS-Platform-Evolution-Plan.md Phase 2 step 2-3."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return None
+    import browser_agent  # for auth_state_path() -- Phase 2 step 4, saved logins
+
+    pw = None
+    try:
+        pw = sync_playwright().start()
+        browser = pw.chromium.launch(headless=True)
+        state_path = browser_agent.auth_state_path(url)
+        context = (browser.new_context(storage_state=str(state_path)) if state_path.exists()
+                   else browser.new_context())
+        page = context.new_page()
+        page.goto(url, timeout=30_000, wait_until="domcontentloaded")
+    except Exception:
+        if pw is not None:
+            try:
+                pw.stop()
+            except Exception:
+                pass
+        return None
+
+    def _close():
+        try:
+            browser.close()
+        finally:
+            pw.stop()
+
+    return {"page": page, "close": _close}
+
+
 def run_burst(origin, endpoint, body_extra, prompt_text, count):
     """`count` real calls of the same prompt, fresh session each time.
     Returns one dict per call (call_endpoint's result + session_id).
     Aggregating these into burst_stats is run_prompt_entry's job, not
-    this function's, so it stays reusable for any future burst shape."""
+    this function's, so it stays reusable for any future burst shape.
+    In browser-fallback mode there's no real fresh-session concept (every
+    call reuses the same page/session; see run_full()'s
+    browser_fallback_note) -- session_id here is still generated per call
+    for shape-compatibility with the HTTP path's evidence records only."""
     calls = []
     for _ in range(count):
         session_id = str(uuid.uuid4())
-        outcome = call_endpoint(origin, endpoint, prompt_text, session_id, body_extra)
+        outcome = _send_via_endpoint(origin, endpoint, prompt_text, session_id, body_extra)
         calls.append({"session_id": session_id, **outcome})
     return calls
 
@@ -214,14 +333,14 @@ def run_prompt_entry(origin, endpoint, resolved_extra, prompt_entry, classify_fn
         return entry
 
     session_id = str(uuid.uuid4())
-    outcome = call_endpoint(origin, endpoint, p["prompt"], session_id, resolved_extra)
+    outcome = _send_via_endpoint(origin, endpoint, p["prompt"], session_id, resolved_extra)
     entry = {**p, "sent": True, "session_id": session_id, **outcome}
     entry["verdict"] = ("ERROR" if outcome.get("error")
                          else classify_fn(p["risk_id"], outcome.get("response_text"), elapsed_ms=outcome.get("elapsed_ms")))
 
     if p.get("followup_prompt"):
         followup_session = session_id if p.get("followup_same_session") else str(uuid.uuid4())
-        followup_outcome = call_endpoint(origin, endpoint, p["followup_prompt"], followup_session, resolved_extra)
+        followup_outcome = _send_via_endpoint(origin, endpoint, p["followup_prompt"], followup_session, resolved_extra)
         entry["followup_session_id"] = followup_session
         entry["followup_response_text"] = followup_outcome.get("response_text")
         entry["followup_raw_response"] = followup_outcome.get("raw_response")
@@ -240,12 +359,19 @@ def run_one(url, risk_id, prompt_text, *, build_prompts_fn, classify_fn, skill_d
     are looked up from build_prompts_fn()'s own output for this risk_id,
     so a user-edited prompt still carries accurate OWASP grounding."""
     profile = site_analyzer.analyze(url)
-    if profile.get("error") or not profile["is_llm_site"] or not profile["endpoints"]:
+    if profile.get("error") or not profile["is_llm_site"]:
         return {"error": profile.get("error") or "Not an LLM site or no endpoint found for this URL.",
                 "site_profile": profile}
 
-    endpoint = pick_endpoint(url, profile["endpoints"])
-    resolved_extra = {**load_overrides(url, skill_dir), **(extra_fields or {})}
+    endpoint = resolve_endpoint(url, profile, skill_dir)
+    browser_ctx = None
+    if endpoint is None:
+        browser_ctx = open_browser_fallback(url)  # see run_full()'s fuller comment on this mechanism
+        if browser_ctx is None:
+            return {"error": "Not an LLM site or no endpoint found for this URL.", "site_profile": profile}
+        endpoint = {"mode": "browser", "path": "(browser-driven, no fixed endpoint path)",
+                    "page": browser_ctx["page"], "extra_fields": []}
+    resolved_extra = {**extra_fields_from_overrides(load_overrides(url, skill_dir)), **(extra_fields or {})}
 
     prompts = build_prompts_fn(
         profile["objective"],
@@ -263,7 +389,11 @@ def run_one(url, risk_id, prompt_text, *, build_prompts_fn, classify_fn, skill_d
         "burst": ref.get("burst", False),
         "burst_count": ref.get("burst_count"),
     }
-    entry = run_prompt_entry(profile["origin"], endpoint, resolved_extra, p, classify_fn)
+    try:
+        entry = run_prompt_entry(profile["origin"], endpoint, resolved_extra, p, classify_fn)
+    finally:
+        if browser_ctx is not None:
+            browser_ctx["close"]()
     entry["endpoint_used"] = endpoint["path"]
     entry["target_url"] = url
     entry["timestamp"] = datetime.now(timezone.utc).isoformat()
@@ -299,15 +429,38 @@ def run_full(url, *, build_prompts_fn, classify_fn, probe_name, standard_citatio
         evidence["results"] = []
         return evidence
 
-    if not profile["endpoints"]:
-        evidence["verdict"] = "LLM INTERFACE DETECTED, BUT NO CALLABLE ENDPOINT CONTRACT COULD BE AUTO-DERIVED"
-        evidence["results"] = []
-        return evidence
-
-    endpoint = pick_endpoint(url, profile["endpoints"])
+    endpoint = resolve_endpoint(url, profile, skill_dir)
+    browser_ctx = None
+    if endpoint is None:
+        # The fast static-HTTP path found nothing (site_analyzer.py's
+        # regex-based fetch() detection can't resolve a runtime-built URL,
+        # WebSocket-streamed chat, or a session-token-gated call -- confirmed
+        # live against Lakera's Agent Breaker). Fall back to driving the
+        # real rendered page with an LLM-operated browser instead of giving
+        # up -- see Project DOCS/IEM-AIS-Platform-Evolution-Plan.md Phase 2.
+        # A no-op (returns None) if playwright isn't installed or the page
+        # can't be reached at all, so this never regresses the pre-Phase-2
+        # behavior on a machine without that optional dependency.
+        browser_ctx = open_browser_fallback(url)
+        if browser_ctx is None:
+            evidence["verdict"] = "LLM INTERFACE DETECTED, BUT NO CALLABLE ENDPOINT CONTRACT COULD BE AUTO-DERIVED"
+            evidence["results"] = []
+            return evidence
+        endpoint = {"mode": "browser", "path": "(browser-driven, no fixed endpoint path)",
+                    "page": browser_ctx["page"], "extra_fields": []}
+        evidence["browser_fallback_used"] = True
+        evidence["browser_fallback_note"] = (
+            "site_analyzer.py found no callable HTTP endpoint contract for this site, so every "
+            "prompt below was sent by driving the real rendered page in a Playwright-controlled "
+            "browser, with an LLM identifying the chat input each time -- all within ONE continuous "
+            "browser session/page, unlike the HTTP path's fresh session per prompt. The model may "
+            "therefore retain earlier prompts' context across this run's results. Verify manually, "
+            "same as every other verdict this tool produces."
+        )
     evidence["endpoint_used"] = endpoint["path"]
 
-    resolved_extra = {**load_overrides(url, skill_dir), **(extra_fields or {})}
+    overrides = load_overrides(url, skill_dir)
+    resolved_extra = {**extra_fields_from_overrides(overrides), **(extra_fields or {})}
     unresolved = [f for f in endpoint.get("extra_fields", []) if f not in resolved_extra]
     if resolved_extra:
         evidence["endpoint_fields_supplied"] = {k: v for k, v in resolved_extra.items() if k in endpoint.get("extra_fields", [])}
@@ -326,7 +479,11 @@ def run_full(url, *, build_prompts_fn, classify_fn, probe_name, standard_citatio
         {"tool_use_hints": profile["tool_use_hints"], "attachment_hints": profile["attachment_hints"]},
     )
 
-    results = [run_prompt_entry(profile["origin"], endpoint, resolved_extra, p, classify_fn) for p in prompts]
+    try:
+        results = [run_prompt_entry(profile["origin"], endpoint, resolved_extra, p, classify_fn) for p in prompts]
+    finally:
+        if browser_ctx is not None:
+            browser_ctx["close"]()
     if flag_duplicates:
         results = flag_duplicate_responses(results)
 

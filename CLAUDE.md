@@ -90,6 +90,57 @@ duplicated:
   burst_stats=None)`) and `build_prompts_fn` — the classifier itself is never here (see below).
   `run_full` takes `flag_duplicates=True` by default; UnboundedConsumption passes `False` since its
   original `inject.py` never ran that step.
+- `resolve_endpoint()` / `open_browser_fallback()` / `browser_agent.py` — Phase 2 of
+  `Project DOCS/IEM-AIS-Platform-Evolution-Plan.md`, universal chatbot reach. `resolve_endpoint()`
+  prefers a human-confirmed `_endpoint_override` (a reserved key inside a URL's
+  `site_overrides.json` entry — full path/method/field-names/headers, still fully human-supplied,
+  never guessed) over `pick_endpoint()`'s auto-guess, and honors it even when
+  `site_analyzer.py` found zero endpoints — the exact Lakera Agent Breaker gap this phase exists to
+  close (a runtime-built `fetch()` URL, WebSocket streaming, or a session-token-gated call, none of
+  which a static regex can ever resolve). When NEITHER an override nor an auto-guessed endpoint
+  exists, `run_full()`/`run_one()` try `open_browser_fallback()` before giving up: it launches a
+  headless Playwright Chromium browser (loading a saved login via `browser_agent.auth_state_path()`
+  if `python ui/shared/browser_agent.py login <url>` was run for that origin first), and
+  `browser_agent.py`'s `send_prompt_via_browser()` asks an LLM which element on the real rendered
+  page is the chat input and how to submit it, then drives that via Playwright and reads the reply
+  back out of the DOM — never assuming a wire protocol underneath, so WebSocket/SSE/GraphQL/REST
+  all become invisible, the same way a human tester interacting with the page would be indifferent
+  to it. The LLM call (`_default_llm_call`) prefers shelling out to the `claude` CLI's `-p` mode,
+  prompt piped via stdin (confirmed live: passing it as a CLI argument on Windows silently mangled
+  its embedded newlines via the npm `.cmd` shim's `cmd.exe` layer) — this authenticates through
+  whatever this machine's own Claude Code login already is (a Pro/Max subscription's usage
+  allowance, proven live by succeeding at the exact moment this project's own `ANTHROPIC_API_KEY`
+  had zero credit and was rejecting direct API calls outright) — and falls back to a direct
+  Anthropic API call only if `claude` isn't on `PATH`. `_send_via_endpoint()` is the dispatcher
+  every send-site in `inject_base.py` goes through (`run_prompt_entry`, `run_burst`) so this
+  fallback needed zero changes to any skill's `classify()` — both paths return the identical
+  `response_text`/`raw_response`/`error`/`elapsed_ms` shape. `open_browser_fallback()` is a
+  hard no-op (returns `None`, caught by an `except ImportError`) unless `playwright` is actually
+  installed, so a normal HTTP-only run on a machine without that optional dependency is completely
+  unaffected — confirmed by this session's own test suite, which exercises every real code path in
+  `browser_agent.py` (prompt building, decision parsing and its rejection of an out-of-range/
+  hallucinated element index, every failure mode, the fallback wiring, the auth-state plumbing, the
+  reveal-click retry below) against fake Playwright/LLM/subprocess stand-ins, zero network, even on
+  a machine where `playwright` happens to be installed. **New dependencies, flagged explicitly per
+  the plan, not left implicit**: `playwright` (+ `playwright install chromium`, a real browser
+  binary); an `anthropic` Python package + `ANTHROPIC_API_KEY` (real per-run cost) ONLY if `claude`
+  isn't on `PATH`. **Live-verified 2026-09-14** against
+  `https://play.lakera.ai/agent-breaker/solace_profane_chat` (previously "NO CALLABLE ENDPOINT
+  CONTRACT COULD BE AUTO-DERIVED"): its real chat widget turned out to be hidden behind a "Chat" tab
+  that must be clicked before the input exists in the DOM at all, discovered only by running this
+  live, not anticipated — `_find_reveal_candidates()` (try each chat-labeled clickable element in
+  turn, short 5s per-click timeout so one non-actionable candidate doesn't eat Playwright's default
+  30s, never guesses what to *type*) handles it. Result: 4 of 8 risks got a real prompt through and
+  a real classified reply back (`HELD` ×3, `NEEDS_REVIEW` ×1); the other 3 hit an honest `ERROR`
+  from element-visibility timing flakiness on this specific dynamic page (never a crash, never a
+  fabricated reply), 1 is `NOT_APPLICABLE`. Left as known, honestly-documented limitations rather
+  than chased further: this residual per-risk flakiness, and the reply-capture heuristic (diffing
+  page body text before/after) picking up surrounding page chrome alongside the bot's own reply on
+  this page's layout. The same live run also surfaced and fixed an unrelated, pre-existing bug:
+  every skill's CLI `main()` crashed with `UnicodeEncodeError` printing a real reply/Playwright
+  error trace containing a character cp1252 (the default Windows console encoding) can't represent
+  — fixed with `sys.stdout.reconfigure(encoding="utf-8", errors="replace")` at the top of every
+  skill's `main()`; display-only, the saved evidence JSON was always correctly UTF-8.
 - `references/` — SKILL.md documentation content shared across skills (learn-phase mechanics,
   per-site config rules, the OWASP-fetch mechanism, common gotchas, common troubleshooting). Every
   skill's `SKILL.md` links to these directly (one level deep, per [Anthropic's Skill authoring best
